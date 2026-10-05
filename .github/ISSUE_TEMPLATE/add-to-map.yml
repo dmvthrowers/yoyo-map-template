@@ -1,0 +1,56 @@
+name: Add me to the map
+description: Ask to be listed as a player, club, or shop.
+title: "Add to map: "
+labels: ["add-to-map"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        This form is **public**. Everything you type here can be seen by anyone.
+        Don't include an email, phone number, or street address.
+        Players are shown at city level only.
+  - type: input
+    id: name
+    attributes:
+      label: Display name
+      description: First name, nickname, or handle. Club or shop name for those.
+    validations:
+      required: true
+  - type: dropdown
+    id: type
+    attributes:
+      label: I'm a
+      options: [Player, Club, Shop]
+    validations:
+      required: true
+  - type: input
+    id: city
+    attributes:
+      label: City and state or country
+      placeholder: Springfield, IL
+    validations:
+      required: true
+  - type: input
+    id: toys
+    attributes:
+      label: What do you play?
+      placeholder: yo-yo, kendama
+  - type: input
+    id: link
+    attributes:
+      label: Link (optional)
+      description: An https:// website, Instagram, or YouTube link.
+  - type: input
+    id: note
+    attributes:
+      label: One short line (optional)
+      placeholder: Meets 3rd Sundays at the library
+  - type: checkboxes
+    id: consent
+    attributes:
+      label: Consent
+      options:
+        - label: I'm 13 or older, or a parent or guardian is submitting this for me.
+          required: true
+        - label: I understand this listing is public and I can ask to be removed at any time.
+          required: true
