@@ -1,5 +1,5 @@
 // Draws the pins from the JSON block that build.py writes into index.html,
-// and wires the Players / Clubs / Shops checkboxes to both the map and the list.
+// and wires the category checkboxes to both the map and the list.
 (function () {
   "use strict";
   var dataEl = document.getElementById("map-data");
@@ -26,8 +26,8 @@
       title.textContent = e.name;
     }
     box.appendChild(title);
-    var lines = [s.types[e.type] + " · " + e.city];
-    if (e.toys && e.toys.length) lines.push(e.toys.join(", "));
+    var lines = [s.labels[e.type] + " · " + e.city];
+    if (e.tags && e.tags.length) lines.push(e.tags.join(", "));
     if (e.note) lines.push(e.note);
     lines.forEach(function (text) {
       var p = document.createElement("div");
@@ -38,7 +38,7 @@
   }
 
   var layers = {};
-  Object.keys(s.types).forEach(function (t) { layers[t] = L.layerGroup().addTo(map); });
+  Object.keys(s.labels).forEach(function (t) { layers[t] = L.layerGroup().addTo(map); });
   data.entries.forEach(function (e) {
     var icon = L.divIcon({ className: "pin pin-" + e.type, iconSize: [14, 14] });
     L.marker([e.lat, e.lon], { icon: icon, title: e.name, alt: e.name })

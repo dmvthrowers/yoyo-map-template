@@ -1,5 +1,5 @@
 /* Square corners and flat cards, no shadows: the DMV Throwers look.
-   Colors come from map.jsonc through theme.css (built). */
+   Colors come from the settings file through theme.css (built). */
 *, *::before, *::after { box-sizing: border-box; border-radius: 0; }
 
 body {
@@ -44,9 +44,7 @@ a { color: var(--primary); }
 .filter { display: inline-flex; align-items: center; gap: 8px; min-height: 44px; cursor: pointer; }
 .filter input { width: 20px; height: 20px; margin: 0; accent-color: var(--dark); }
 .swatch { width: 14px; height: 14px; border: 2px solid #fff; outline: 1px solid var(--dark); }
-.swatch-player, .pin-player { background: var(--pin-player); }
-.swatch-club, .pin-club { background: var(--pin-club); }
-.swatch-shop, .pin-shop { background: var(--pin-shop); }
+/* Each category's .pin-<key> color is generated into theme.css. */
 
 .map { height: 65vh; min-height: 360px; border: 2px solid var(--dark); }
 .pin { border: 2px solid #fff; outline: 1px solid var(--dark); }

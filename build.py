@@ -1,11 +1,13 @@
 #!/usr/bin/env python3
 """Build the map site from map.jsonc into _site/.
 
-    python3 build.py           # build
-    python3 build.py --serve   # build, then preview at http://localhost:8000/
+    python3 build.py                                  # build
+    python3 build.py --serve                          # build, then preview at http://localhost:8000/
+    python3 build.py --config examples/x.jsonc --out /tmp/x   # build another settings file
 
 Standard-library Python 3.9+ only. Errors stop the build; warnings print and continue.
 """
+import argparse
 import hashlib
 import html
 import json
@@ -16,14 +18,19 @@ from pathlib import Path
 from urllib.parse import urlparse
 
 ROOT = Path(__file__).resolve().parent
-OUT = ROOT / "_site"
-TYPES = {"player": "Player", "club": "Club", "shop": "Shop"}
-ENTRY_KEYS = {"name", "type", "city", "lat", "lon", "toys", "link", "note"}
-# Players are snapped to a 0.1-degree grid (about 11 km north-south), then spread a little so
+ENTRY_KEYS = {"name", "type", "city", "lat", "lon", "tags", "link", "note"}
+# People are snapped to a 0.1-degree grid (about 11 km north-south), then spread a little so
 # pins in the same city don't stack. The spread is seeded from the entry, so builds are stable.
-PLAYER_GRID = 0.1
-PLAYER_SPREAD = 0.03
+PEOPLE_GRID = 0.1
+PEOPLE_SPREAD = 0.03
 HEX = re.compile(r"^#[0-9A-Fa-f]{6}$")
+SLUG = re.compile(r"^[a-z][a-z0-9-]{0,23}$")
+TEXT_DEFAULTS = {
+    "heading": "Who's Near You",
+    "tags_label": "Into",
+    "join_text": "Send your display name, your city, and what you're into. Groups and places: "
+                 "send your public meeting spot or address and a link.",
+}
 
 errors, warnings = [], []
 
@@ -58,20 +65,25 @@ def is_https(url):
     return p.scheme == "https" and bool(p.netloc)
 
 
+def is_people(cfg, type_key):
+    """Categories are people unless they say otherwise, so a forgotten flag fails safe."""
+    return cfg["categories"][type_key].get("people", True) is not False
+
+
 def blur(entry):
-    """City-level position for a player: snap to the grid, then a stable small offset."""
-    lat = round(entry["lat"] / PLAYER_GRID) * PLAYER_GRID
-    lon = round(entry["lon"] / PLAYER_GRID) * PLAYER_GRID
+    """City-level position for a person: snap to the grid, then a stable small offset."""
+    lat = round(entry["lat"] / PEOPLE_GRID) * PEOPLE_GRID
+    lon = round(entry["lon"] / PEOPLE_GRID) * PEOPLE_GRID
     seed = hashlib.sha256(f'{entry["name"]}|{entry["city"]}'.encode()).digest()
-    dlat = (seed[0] / 255 - 0.5) * 2 * PLAYER_SPREAD
-    dlon = (seed[1] / 255 - 0.5) * 2 * PLAYER_SPREAD
+    dlat = (seed[0] / 255 - 0.5) * 2 * PEOPLE_SPREAD
+    dlon = (seed[1] / 255 - 0.5) * 2 * PEOPLE_SPREAD
     return round(lat + dlat, 3), round(lon + dlon, 3)
 
 
 def check_config(cfg):
     for key in ("title", "organizer", "contact_email", "tiles", "tiles_attribution"):
         if not str(cfg.get(key) or "").strip():
-            errors.append(f'"{key}" is empty in map.jsonc.')
+            errors.append(f'"{key}" is empty in the settings file.')
     for key in ("organizer_url", "add_url", "tiles_attribution_url"):
         if cfg.get(key) and not is_https(cfg[key]):
             errors.append(f'"{key}" must start with https:// (got {cfg[key]!r}).')
@@ -83,9 +95,27 @@ def check_config(cfg):
     if not isinstance(cfg.get("zoom"), int) or not 1 <= cfg["zoom"] <= 18:
         errors.append('"zoom" must be a whole number from 1 to 18.')
     colors = cfg.get("colors") or {}
-    for key in ("primary", "dark", "background", "player", "club", "shop"):
+    for key in ("primary", "dark", "background"):
         if not HEX.match(str(colors.get(key, ""))):
             errors.append(f'colors.{key} must be a 6-digit hex color like "#B80000".')
+    cats = cfg.get("categories")
+    if not isinstance(cats, dict) or not 1 <= len(cats) <= 8:
+        errors.append('"categories" needs 1 to 8 entries, like "player": { "label": "Player", ... }.')
+        return
+    for key, cat in cats.items():
+        where = f'categories.{key}'
+        if not SLUG.match(key):
+            errors.append(f'{where}: the key must be short, lowercase letters, numbers, or dashes (like "player").')
+        if not isinstance(cat, dict):
+            errors.append(f"{where} must be a {{ ... }} block.")
+            continue
+        for field in ("label", "plural"):
+            if not str(cat.get(field) or "").strip():
+                errors.append(f'{where} needs a "{field}".')
+        if not HEX.match(str(cat.get("color", ""))):
+            errors.append(f'{where}.color must be a 6-digit hex color.')
+        if "people" in cat and not isinstance(cat["people"], bool):
+            errors.append(f'{where}.people must be true or false.')
     if not errors:
         if contrast("#ffffff", colors["primary"]) < 4.5:
             warnings.append("White text on colors.primary is hard to read (contrast under 4.5:1). Pick a darker primary.")
@@ -93,11 +123,12 @@ def check_config(cfg):
             warnings.append("colors.dark text on colors.background is low contrast (under 7:1).")
 
 
-def check_entries(entries):
+def check_entries(cfg, entries):
     out = []
     if not isinstance(entries, list):
         errors.append('"entries" must be a list: "entries": [ {...}, {...} ]')
         return out
+    cats = cfg.get("categories") if isinstance(cfg.get("categories"), dict) else {}
     for i, e in enumerate(entries, 1):
         where = f'Entry {i} ({e.get("name") or "no name"})' if isinstance(e, dict) else f"Entry {i}"
         if not isinstance(e, dict):
@@ -111,8 +142,8 @@ def check_entries(entries):
         for key in ("name", "city"):
             if not isinstance(e.get(key), str) or not e[key].strip():
                 errors.append(f'{where} needs a "{key}".')
-        if e.get("type") not in TYPES:
-            errors.append(f'{where}: "type" must be one of {", ".join(TYPES)}.')
+        if e.get("type") not in cats:
+            errors.append(f'{where}: "type" must be one of your categories: {", ".join(cats)}.')
         lat, lon = e.get("lat"), e.get("lon")
         if not (isinstance(lat, (int, float)) and -90 <= lat <= 90 and isinstance(lon, (int, float)) and -180 <= lon <= 180):
             errors.append(f'{where}: "lat" and "lon" must be numbers, like 39.78 and -89.65.')
@@ -120,27 +151,28 @@ def check_entries(entries):
             errors.append(f"{where}: no email addresses on the map. Put a link in \"link\" instead.")
         if e.get("link") and not is_https(e["link"]):
             errors.append(f'{where}: "link" must start with https://.')
-        toys = e.get("toys", [])
-        if not (isinstance(toys, list) and all(isinstance(t, str) for t in toys)):
-            errors.append(f'{where}: "toys" must be a list like ["yo-yo", "kendama"].')
+        tags = e.get("tags", [])
+        if not (isinstance(tags, list) and all(isinstance(t, str) for t in tags)):
+            errors.append(f'{where}: "tags" must be a list like ["yo-yo", "kendama"].')
         if len(str(e.get("note", ""))) > 140:
             warnings.append(f"{where}: note is over 140 characters; keep it to one short line.")
         out.append(e)
     return out
 
 
-def public_entries(entries):
-    """What actually ships to the browser. Players get blurred coordinates."""
+def public_entries(cfg, entries):
+    """What actually ships to the browser. People get blurred coordinates."""
     rows = []
     for e in entries:
-        lat, lon = blur(e) if e["type"] == "player" else (e["lat"], e["lon"])
+        lat, lon = blur(e) if is_people(cfg, e["type"]) else (e["lat"], e["lon"])
         row = {"name": e["name"].strip(), "type": e["type"], "city": e["city"].strip(),
                "lat": lat, "lon": lon}
-        for key in ("toys", "link", "note"):
+        for key in ("tags", "link", "note"):
             if e.get(key):
                 row[key] = e[key]
         rows.append(row)
-    rows.sort(key=lambda r: (r["city"].lower(), r["type"], r["name"].lower()))
+    order = list(cfg["categories"])
+    rows.sort(key=lambda r: (r["city"].lower(), order.index(r["type"]), r["name"].lower()))
     return rows
 
 
@@ -214,13 +246,22 @@ def footer(cfg):
 </footer>"""
 
 
+def list_words(words):
+    words = list(words)
+    if len(words) <= 2:
+        return " and ".join(words)
+    return ", ".join(words[:-1]) + ", and " + words[-1]
+
+
 def index_body(cfg, rows):
     e = html.escape
-    counts = {t: sum(r["type"] == t for r in rows) for t in TYPES}
+    cats = cfg["categories"]
+    text = {k: cfg.get(k) or v for k, v in TEXT_DEFAULTS.items()}
+    counts = {t: sum(r["type"] == t for r in rows) for t in cats}
     filters = "\n".join(
         f'<label class="filter"><input type="checkbox" value="{t}" checked> '
-        f'<span class="swatch swatch-{t}" aria-hidden="true"></span>{label}s ({counts[t]})</label>'
-        for t, label in TYPES.items())
+        f'<span class="swatch pin-{t}" aria-hidden="true"></span>{e(c["plural"])} ({counts[t]})</label>'
+        for t, c in cats.items())
     table_rows = []
     for r in rows:
         name = e(r["name"])
@@ -228,29 +269,44 @@ def index_body(cfg, rows):
             name = f'<a href="{e(r["link"])}" target="_blank" rel="noopener noreferrer">{name}</a>'
         note = f'<br><span class="muted">{e(r["note"])}</span>' if r.get("note") else ""
         table_rows.append(
-            f'<tr data-type="{r["type"]}"><td>{name}{note}</td><td>{TYPES[r["type"]]}</td>'
-            f'<td>{e(r["city"])}</td><td>{e(", ".join(r.get("toys", [])))}</td></tr>')
+            f'<tr data-type="{r["type"]}"><td>{name}{note}</td><td>{e(cats[r["type"]]["label"])}</td>'
+            f'<td>{e(r["city"])}</td><td>{e(", ".join(r.get("tags", [])))}</td></tr>')
     settings = {"center": cfg["center"], "zoom": cfg["zoom"], "tiles": cfg["tiles"],
-                "attribution": cfg["tiles_attribution"], "types": TYPES}
+                "attribution": cfg["tiles_attribution"],
+                "labels": {t: c["label"] for t, c in cats.items()}}
     # A JSON data block is not executed, so the strict security policy allows it.
     data = json.dumps({"settings": settings, "entries": rows}, ensure_ascii=False).replace("</", "<\\/")
     join = (f'<p><a class="button" href="{e(cfg["add_url"])}" target="_blank" rel="noopener noreferrer">Add yourself</a></p>'
             if cfg.get("add_url") else "")
     email = e(cfg["contact_email"])
+    map_label = "Map of " + list_words(c["plural"].lower() for c in cats.values())
+    def sentence_list(plurals):
+        """'Clubs, shops, and venues': only the first word capitalized, since it starts a sentence."""
+        return list_words([plurals[0]] + [w.lower() for w in plurals[1:]]) if plurals else ""
+    people = [c["plural"] for t, c in cats.items() if is_people(cfg, t)]
+    places = [c["plural"] for t, c in cats.items() if not is_people(cfg, t)]
+    privacy = []
+    if people:
+        privacy.append(f"<li>{e(sentence_list(people))} show up at city level only. Each pin is snapped to a grid "
+                       "about 10 km wide, then nudged so people in the same city don't overlap.</li>")
+    privacy += ["<li>No accounts, no cookies, no trackers. The map never asks for your location.</li>",
+                "<li>No emails, phone numbers, or home addresses are published. The build refuses them.</li>"]
+    if places:
+        privacy.append(f"<li>{e(sentence_list(places))} are shown at the public spot they chose.</li>")
     return f"""<section class="wrap" aria-labelledby="map-heading">
-<h1 id="map-heading">Who Throws Near You</h1>
+<h1 id="map-heading">{e(text["heading"])}</h1>
 <fieldset class="filters">
 <legend>Show</legend>
 {filters}
 </fieldset>
-<div id="map" class="map" role="region" aria-label="Map of players, clubs, and shops"></div>
+<div id="map" class="map" role="region" aria-label="{e(map_label)}"></div>
 <noscript><p class="muted">The map needs JavaScript. Everyone on it is also in the list below.</p></noscript>
 </section>
 <section class="wrap" aria-labelledby="list-heading">
 <h2 id="list-heading">Everyone on the Map</h2>
 <div class="table-scroll">
 <table class="entries">
-<thead><tr><th scope="col">Name</th><th scope="col">Type</th><th scope="col">City</th><th scope="col">Plays</th></tr></thead>
+<thead><tr><th scope="col">Name</th><th scope="col">Type</th><th scope="col">City</th><th scope="col">{e(text["tags_label"])}</th></tr></thead>
 <tbody>
 {chr(10).join(table_rows)}
 </tbody>
@@ -259,17 +315,14 @@ def index_body(cfg, rows):
 </section>
 <section class="wrap" id="join" aria-labelledby="join-heading">
 <h2 id="join-heading">Get on the Map</h2>
-<p>Send your display name, your city, and what you throw. Clubs and shops: send your public meetup spot or storefront and a link.</p>
+<p>{e(text["join_text"])}</p>
 {join}
 <p>Want off the map? Email <a href="mailto:{email}">{email}</a>. You'll be gone at the next update.</p>
 </section>
 <section class="wrap" aria-labelledby="privacy-heading">
 <h2 id="privacy-heading">How Your Privacy Works</h2>
 <ul>
-<li>Players show up at city level only. Your pin is snapped to a grid about 10 km wide, then nudged so people in the same city don't overlap.</li>
-<li>No accounts, no cookies, no trackers. The map never asks for your location.</li>
-<li>No emails, phone numbers, or home addresses are published. The build refuses them.</li>
-<li>Clubs and shops are shown at the public spot they chose.</li>
+{chr(10).join(privacy)}
 </ul>
 </section>
 <script type="application/json" id="map-data">{data}</script>
@@ -279,48 +332,59 @@ def index_body(cfg, rows):
 
 def theme_css(cfg):
     c = cfg["colors"]
-    return (":root {\n"
-            f"  --primary: {c['primary']};\n  --dark: {c['dark']};\n  --bg: {c['background']};\n"
-            f"  --pin-player: {c['player']};\n  --pin-club: {c['club']};\n  --pin-shop: {c['shop']};\n"
-            "}\n")
+    css = (":root {\n"
+           f"  --primary: {c['primary']};\n  --dark: {c['dark']};\n  --bg: {c['background']};\n"
+           "}\n")
+    for key, cat in cfg["categories"].items():
+        css += f".pin-{key} {{ background: {cat['color']}; }}\n"
+    return css
 
 
-def build():
-    cfg = load_jsonc(ROOT / "map.jsonc")
+def build(config_path, out):
+    cfg = load_jsonc(config_path)
     check_config(cfg)
-    entries = check_entries(cfg.get("entries", []))
+    entries = check_entries(cfg, cfg.get("entries", []))
     for w in warnings:
         print(f"WARNING: {w}")
     if errors:
-        print("\nThe map didn't build. Fix these in map.jsonc:\n", file=sys.stderr)
+        print(f"\nThe map didn't build. Fix these in {config_path.name}:\n", file=sys.stderr)
         for err in errors:
             print(f"  - {err}", file=sys.stderr)
         sys.exit(1)
-    rows = public_entries(entries)
+    rows = public_entries(cfg, entries)
 
-    if OUT.exists():
-        shutil.rmtree(OUT)
-    shutil.copytree(ROOT / "assets", OUT / "assets")
-    (OUT / "assets" / "theme.css").write_text(theme_css(cfg), encoding="utf-8")
-    description = cfg.get("tagline") or f'{cfg["title"]}: players, clubs, and shops.'
-    (OUT / "index.html").write_text(
+    if out.exists():
+        shutil.rmtree(out)
+    shutil.copytree(ROOT / "assets", out / "assets")
+    (out / "assets" / "theme.css").write_text(theme_css(cfg), encoding="utf-8")
+    description = cfg.get("tagline") or f'{cfg["title"]}: who and what is near you.'
+    (out / "index.html").write_text(
         page(cfg, cfg["title"], description, index_body(cfg, rows)), encoding="utf-8")
     missing = f"""<section class="wrap">
 <h1>Page Not Found</h1>
 <p>That page isn't here. <a href="index.html">Back to the map</a>.</p>
 </section>"""
-    (OUT / "404.html").write_text(page(cfg, f'Not found | {cfg["title"]}', description, missing), encoding="utf-8")
-    (OUT / ".nojekyll").write_text("", encoding="utf-8")
-    counts = ", ".join(f"{n} {t}{'' if n == 1 else 's'}"
-                       for t, n in ((t, sum(r["type"] == t for r in rows)) for t in TYPES))
-    print(f"Built _site/ with {len(rows)} entries ({counts}).")
+    (out / "404.html").write_text(page(cfg, f'Not found | {cfg["title"]}', description, missing), encoding="utf-8")
+    (out / ".nojekyll").write_text("", encoding="utf-8")
+    counts = []
+    for t, c in cfg["categories"].items():
+        n = sum(r["type"] == t for r in rows)
+        counts.append(f'{n} {(c["label"] if n == 1 else c["plural"]).lower()}')
+    counts = ", ".join(counts)
+    print(f"Built {out.name}/ from {config_path.name} with {len(rows)} entries ({counts}).")
 
 
 if __name__ == "__main__":
-    build()
-    if "--serve" in sys.argv:
+    parser = argparse.ArgumentParser(description="Build the map site.")
+    parser.add_argument("--config", default="map.jsonc", help="settings file (default: map.jsonc)")
+    parser.add_argument("--out", default="_site", help="output folder (default: _site)")
+    parser.add_argument("--serve", action="store_true", help="preview at http://localhost:8000/")
+    args = parser.parse_args()
+    out_dir = (ROOT / args.out).resolve()
+    build((ROOT / args.config).resolve(), out_dir)
+    if args.serve:
         import functools
         import http.server
-        handler = functools.partial(http.server.SimpleHTTPRequestHandler, directory=str(OUT))
+        handler = functools.partial(http.server.SimpleHTTPRequestHandler, directory=str(out_dir))
         print("Preview at http://localhost:8000/  (Ctrl+C to stop)")
         http.server.ThreadingHTTPServer(("127.0.0.1", 8000), handler).serve_forever()

@@ -1,5 +1,5 @@
 name: Add me to the map
-description: Ask to be listed as a player, club, or shop.
+description: Ask to be listed as a person, group, or place.
 title: "Add to map: "
 labels: ["add-to-map"]
 body:
@@ -8,19 +8,20 @@ body:
       value: |
         This form is **public**. Everything you type here can be seen by anyone.
         Don't include an email, phone number, or street address.
-        Players are shown at city level only.
+        People are shown at city level only.
   - type: input
     id: name
     attributes:
       label: Display name
-      description: First name, nickname, or handle. Club or shop name for those.
+      description: First name, nickname, or handle. For a group or place, its public name.
     validations:
       required: true
   - type: dropdown
     id: type
     attributes:
-      label: I'm a
-      options: [Player, Club, Shop]
+      label: I'm adding
+      description: The map owner files you under the matching category on their map.
+      options: [Myself (a person), A group or club, A shop, venue, or public place]
     validations:
       required: true
   - type: input
@@ -33,7 +34,7 @@ body:
   - type: input
     id: toys
     attributes:
-      label: What do you play?
+      label: What are you into?
       placeholder: yo-yo, kendama
   - type: input
     id: link

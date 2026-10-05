@@ -2,12 +2,14 @@
 """Check the built site in _site/ before it goes live. Run after build.py:
 
     python3 build.py && python3 scripts/check_site.py
+    python3 scripts/check_site.py --config examples/x.jsonc --site /tmp/x
 
 Fails on: a missing Content Security Policy or one with 'unsafe-inline', inline scripts
 (other than the map's JSON data block), inline styles or event handlers, http:// links,
 broken internal links, a missing title or skip link, and any published entry with fields
-beyond the allowed ones or a player pin that wasn't blurred. Prints "OK" when clean.
+beyond the allowed ones or a pin in a "people" category that wasn't blurred. Prints "OK" when clean.
 """
+import argparse
 import json
 import sys
 from html.parser import HTMLParser
@@ -16,6 +18,7 @@ from urllib.parse import urlparse
 
 ROOT = Path(__file__).resolve().parent.parent
 SITE = ROOT / "_site"
+CONFIG = ROOT / "map.jsonc"
 sys.path.insert(0, str(ROOT))
 import build  # noqa: E402  (reuses the same rules the build applies)
 
@@ -98,20 +101,26 @@ def check_data(raw):
         errors.append("index.html: the map data block is missing")
         return
     data = json.loads(raw)
-    source = build.load_jsonc(ROOT / "map.jsonc")["entries"]
-    exact = {(e["lat"], e["lon"]) for e in source if e.get("type") == "player"}
-    allowed = {"name", "type", "city", "lat", "lon", "toys", "link", "note"}
+    cfg = build.load_jsonc(CONFIG)
+    people = {t for t in cfg["categories"] if build.is_people(cfg, t)}
+    exact = {(e["lat"], e["lon"]) for e in cfg["entries"] if e.get("type") in people}
     for e in data["entries"]:
-        extra = set(e) - allowed
+        extra = set(e) - build.ENTRY_KEYS
         if extra:
             errors.append(f"published entry {e.get('name')!r} has extra fields: {', '.join(sorted(extra))}")
-        if e["type"] == "player" and (e["lat"], e["lon"]) in exact:
-            errors.append(f"player {e['name']!r} is published at the exact coordinates from map.jsonc")
+        if e["type"] in people and (e["lat"], e["lon"]) in exact:
+            errors.append(f"{e['name']!r} is published at the exact coordinates from {CONFIG.name}")
 
 
 def main():
+    global SITE, CONFIG
+    parser = argparse.ArgumentParser(description="Check the built map site.")
+    parser.add_argument("--config", default="map.jsonc", help="settings file the site was built from")
+    parser.add_argument("--site", default="_site", help="built site folder")
+    args = parser.parse_args()
+    SITE, CONFIG = (ROOT / args.site).resolve(), (ROOT / args.config).resolve()
     if not (SITE / "index.html").exists():
-        sys.exit("No _site/index.html. Run python3 build.py first.")
+        sys.exit(f"No {SITE}/index.html. Run python3 build.py first.")
     raw = ""
     for path in sorted(SITE.glob("*.html")):
         data = check_page(path)

@@ -1,4 +1,5 @@
 // YOUR MAP SETTINGS: the one file to edit.
+// Works for any club or hobby. examples/ has ready-made versions for other kinds of groups.
 // Lines starting with // are notes. Keep them on their own line.
 // After editing, the site rebuilds by itself (GitHub Actions), or run: python3 build.py --serve
 {
@@ -12,6 +13,28 @@
   "organizer_url": "https://example.org",
   // A shared inbox for removal requests and questions. Not a personal address.
   "contact_email": "hello@example.org",
+
+  // ---------- Your words ----------
+  // The big heading over the map.
+  "heading": "Who Throws Near You",
+  // Column heading for each entry's "tags" (what they play, collect, bake, fly...).
+  "tags_label": "Plays",
+  // What to send to get listed. One or two sentences.
+  "join_text": "Send your display name, your city, and what you throw. Clubs and shops: send your public meetup spot or storefront and a link.",
+
+  // ---------- Categories ----------
+  // The kinds of pins on your map, in the order they're listed. 1 to 8 of them.
+  // The key on the left (like "player") is what you put in each entry's "type".
+  //   "label"/"plural"  shown on the filters, list, and popups
+  //   "color"           pin color
+  //   "people"          true for individuals: their pins are blurred to city level.
+  //                     false for public places (clubs, shops, venues): shown exactly.
+  //                     Leave it out and the map treats the category as people, to be safe.
+  "categories": {
+    "player": { "label": "Player", "plural": "Players", "color": "#B80000", "people": true },
+    "club":   { "label": "Club",   "plural": "Clubs",   "color": "#102040", "people": false },
+    "shop":   { "label": "Shop",   "plural": "Shops",   "color": "#C9A84C", "people": false },
+  },
 
   // ---------- How people get on the map ----------
   // Where the "Add yourself" button goes: a Google Form, your contact page, or
@@ -30,11 +53,7 @@
   "colors": {
     "primary": "#B80000",
     "dark": "#102040",
-    "background": "#fffdfa",
-    // Pin color for each kind of entry
-    "player": "#B80000",
-    "club": "#102040",
-    "shop": "#C9A84C"
+    "background": "#fffdfa"
   },
 
   // ---------- Map tiles ----------
@@ -47,13 +66,13 @@
 
   // ---------- Entries ----------
   // One block per pin. Fields:
-  //   "name"   display name or handle (players: first name or nickname only, never a child's full name)
-  //   "type"   "player", "club", or "shop"
+  //   "name"   display name or handle (people: first name or nickname only, never a child's full name)
+  //   "type"   one of your category keys above, e.g. "player"
   //   "city"   e.g. "Springfield, IL"
-  //   "lat", "lon"  the CITY's coordinates. For players the build rounds them to about
-  //                 10 km and spreads pins in the same city, so a home address can't leak.
-  //                 Clubs and shops keep what you enter. Use their public venue or storefront.
-  //   "toys"   optional list, e.g. ["yo-yo", "kendama"]
+  //   "lat", "lon"  the CITY's coordinates. For "people" categories the build rounds them to
+  //                 about 10 km and spreads pins in the same city, so a home address can't leak.
+  //                 Places keep what you enter. Use their public venue or storefront.
+  //   "tags"   optional list, e.g. ["yo-yo", "kendama"]
   //   "link"   optional https:// link (website, Instagram, YouTube)
   //   "note"   optional short line, e.g. "Meets 3rd Sundays at the library"
   // Only add people who asked to be listed. Remove anyone who asks, the same day.
@@ -63,7 +82,7 @@
       "type": "player",
       "city": "Springfield, IL",
       "lat": 39.78, "lon": -89.65,
-      "toys": ["yo-yo"],
+      "tags": ["yo-yo"],
       "note": "Replace these samples with real entries."
     },
     {
@@ -71,14 +90,14 @@
       "type": "player",
       "city": "Springfield, IL",
       "lat": 39.78, "lon": -89.65,
-      "toys": ["yo-yo", "kendama"]
+      "tags": ["yo-yo", "kendama"]
     },
     {
       "name": "Springfield Throwers",
       "type": "club",
       "city": "Springfield, IL",
       "lat": 39.8017, "lon": -89.6436,
-      "toys": ["yo-yo", "kendama", "spin top"],
+      "tags": ["yo-yo", "kendama", "spin top"],
       "link": "https://example.org",
       "note": "Free monthly meetup. Loaners provided."
     },
@@ -87,7 +106,7 @@
       "type": "shop",
       "city": "Peoria, IL",
       "lat": 40.6936, "lon": -89.5890,
-      "toys": ["yo-yo"],
+      "tags": ["yo-yo"],
       "note": "Sample entry"
     },
   ],

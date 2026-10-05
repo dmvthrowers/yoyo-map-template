@@ -31,6 +31,13 @@ jobs:
         run: |
           python3 build.py
           python3 scripts/check_site.py
+      - name: Check the example maps still build
+        run: |
+          for f in examples/*.jsonc; do
+            out="$RUNNER_TEMP/$(basename "$f" .jsonc)"
+            python3 build.py --config "$f" --out "$out"
+            python3 scripts/check_site.py --config "$f" --site "$out"
+          done
       - name: Package the site
         if: github.event_name != 'pull_request'
         uses: actions/upload-pages-artifact@fc324d3547104276b827a68afc52ff2a11cc49c9 # v5.0.0

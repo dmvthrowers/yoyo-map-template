@@ -1,0 +1,29 @@
+// Example: a kendama club. Copy over map.jsonc to start from it.
+// Every entry here is a made-up sample. Replace them with real ones.
+{
+  "title": "Front Range Kendama Map",
+  "tagline": "Find players, clubs, and shops near you. Free and all ages.",
+  "organizer": "Front Range Kendama",
+  "organizer_url": "https://example.org",
+  "contact_email": "hello@example.org",
+  "heading": "Who Plays Near You",
+  "tags_label": "Plays",
+  "join_text": "Send your display name, your city, and what you play. Clubs and shops: send your public meetup spot or storefront and a link.",
+  "categories": {
+    "player": { "label": "Player", "plural": "Players", "color": "#C2185B", "people": true },
+    "club": { "label": "Club", "plural": "Clubs", "color": "#263238", "people": false },
+    "shop": { "label": "Shop", "plural": "Shops", "color": "#00796B", "people": false },
+  },
+  "add_url": "",
+  "center": [39.74, -104.99],
+  "zoom": 8,
+  "colors": { "primary": "#AD1457", "dark": "#1A1F24", "background": "#FCFBF8" },
+  "tiles": "https://tile.openstreetmap.org/{z}/{x}/{y}.png",
+  "tiles_attribution": "© OpenStreetMap contributors",
+  "tiles_attribution_url": "https://www.openstreetmap.org/copyright",
+  "entries": [
+    { "name": "Sample Player", "type": "player", "city": "Denver, CO", "lat": 39.74, "lon": -104.99, "tags": ["kendama"] },
+    { "name": "Sample Club", "type": "club", "city": "Boulder, CO", "lat": 40.0150, "lon": -105.2705, "note": "Sundays at the park, weather permitting." },
+    { "name": "Sample Shop", "type": "shop", "city": "Denver, CO", "lat": 39.7392, "lon": -104.9903 },
+  ],
+}

@@ -6,9 +6,9 @@ Built-in protections:
 - A strict Content Security Policy on every page: only the site's own files, plus images from the
   map tile host set in `map.jsonc`. No inline scripts or styles.
 - Leaflet is served from the site itself, not a CDN.
-- Player pins are blurred to city level at build time. Exact coordinates never reach the browser.
+- Pins in "people" categories are blurred to city level at build time. Exact coordinates never reach the browser.
 - `scripts/check_site.py` runs before every deploy. It blocks inline scripts, styles and event
-  handlers, `http://` links, broken links, unblurred player pins, and unexpected entry fields.
+  handlers, `http://` links, broken links, unblurred people pins, and unexpected entry fields.
 - GitHub Actions are pinned to exact commit SHAs and kept current by Dependabot.
 
 **Reporting a problem with the template:** open a GitHub issue. For anything sensitive, use
