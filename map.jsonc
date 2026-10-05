@@ -1,0 +1,113 @@
+// YOUR MAP SETTINGS: the one file to edit.
+// Works for any club or hobby. examples/ has ready-made versions for other kinds of groups.
+// Lines starting with // are notes. Keep them on their own line.
+// After editing, the site rebuilds by itself (GitHub Actions), or run: python3 build.py --serve
+{
+  // ---------- About your map ----------
+  // Shown in the header and the browser tab.
+  "title": "Springfield Yo-Yo Map",
+  // One line under the title. "" to hide.
+  "tagline": "Find throwers, clubs, and shops near you. All ages, all levels, always free.",
+  // Who runs the map. The name links to your club site.
+  "organizer": "Springfield Throwers",
+  "organizer_url": "https://example.org",
+  // A shared inbox for removal requests and questions. Not a personal address.
+  "contact_email": "hello@example.org",
+
+  // ---------- Your words ----------
+  // The big heading over the map.
+  "heading": "Who Throws Near You",
+  // Column heading for each entry's "tags" (what they play, collect, bake, fly...).
+  "tags_label": "Plays",
+  // What to send to get listed. One or two sentences.
+  "join_text": "Send your display name, your city, and what you throw. Clubs and shops: send your public meetup spot or storefront and a link.",
+
+  // ---------- Categories ----------
+  // The kinds of pins on your map, in the order they're listed. 1 to 8 of them.
+  // The key on the left (like "player") is what you put in each entry's "type".
+  //   "label"/"plural"  shown on the filters, list, and popups
+  //   "color"           pin color
+  //   "people"          true for individuals: their pins are blurred to city level.
+  //                     false for public places (clubs, shops, venues): shown exactly.
+  //                     Leave it out and the map treats the category as people, to be safe.
+  "categories": {
+    "player": { "label": "Player", "plural": "Players", "color": "#B80000", "people": true },
+    "club":   { "label": "Club",   "plural": "Clubs",   "color": "#102040", "people": false },
+    "shop":   { "label": "Shop",   "plural": "Shops",   "color": "#C9A84C", "people": false },
+  },
+
+  // ---------- How people get on the map ----------
+  // Where the "Add yourself" button goes: a Google Form, your contact page, or
+  // this repository's "Add me to the map" issue form
+  // (https://github.com/YOU/YOUR-REPO/issues/new?template=add-to-map.yml).
+  // "" hides the button and just shows the contact email.
+  "add_url": "",
+
+  // ---------- Where the map opens ----------
+  // Latitude, longitude, and zoom (3 = a continent, 7 = a state, 10 = a metro area).
+  "center": [39.80, -89.64],
+  "zoom": 7,
+
+  // ---------- Look ----------
+  // Brand colors. The build warns if text on them would be hard to read.
+  "colors": {
+    "primary": "#B80000",
+    "dark": "#102040",
+    "background": "#fffdfa"
+  },
+
+  // ---------- Map tiles ----------
+  // The street map under the pins. OpenStreetMap's tiles are free for small, low-traffic
+  // sites (https://operations.osmfoundation.org/policies/tiles/). Change both lines if you
+  // switch providers; the build adds the tile host to the security policy for you.
+  "tiles": "https://tile.openstreetmap.org/{z}/{x}/{y}.png",
+  "tiles_attribution": "© OpenStreetMap contributors",
+  "tiles_attribution_url": "https://www.openstreetmap.org/copyright",
+
+  // ---------- Entries ----------
+  // One block per pin. Fields:
+  //   "name"   display name or handle (people: first name or nickname only, never a child's full name)
+  //   "type"   one of your category keys above, e.g. "player"
+  //   "city"   e.g. "Springfield, IL"
+  //   "lat", "lon"  the CITY's coordinates. For "people" categories the build rounds them to
+  //                 about 10 km and spreads pins in the same city, so a home address can't leak.
+  //                 Places keep what you enter. Use their public venue or storefront.
+  //   "tags"   optional list, e.g. ["yo-yo", "kendama"]
+  //   "link"   optional https:// link (website, Instagram, YouTube)
+  //   "note"   optional short line, e.g. "Meets 3rd Sundays at the library"
+  // Only add people who asked to be listed. Remove anyone who asks, the same day.
+  "entries": [
+    {
+      "name": "Sample Player",
+      "type": "player",
+      "city": "Springfield, IL",
+      "lat": 39.78, "lon": -89.65,
+      "tags": ["yo-yo"],
+      "note": "Replace these samples with real entries."
+    },
+    {
+      "name": "Another Sample",
+      "type": "player",
+      "city": "Springfield, IL",
+      "lat": 39.78, "lon": -89.65,
+      "tags": ["yo-yo", "kendama"]
+    },
+    {
+      "name": "Springfield Throwers",
+      "type": "club",
+      "city": "Springfield, IL",
+      "lat": 39.8017, "lon": -89.6436,
+      "tags": ["yo-yo", "kendama", "spin top"],
+      "link": "https://example.org",
+      "note": "Free monthly meetup. Loaners provided."
+    },
+    {
+      "name": "Sample Toy Shop",
+      "type": "shop",
+      "city": "Peoria, IL",
+      "lat": 40.6936, "lon": -89.5890,
+      "tags": ["yo-yo"],
+      "note": "Sample entry"
+    },
+  ],
+}

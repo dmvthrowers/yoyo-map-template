@@ -1,0 +1,30 @@
+// Example: a board game meetup network. Copy over map.jsonc to start from it.
+// Every entry here is a made-up sample. Replace them with real ones.
+{
+  "title": "Rose City Board Game Map",
+  "tagline": "Find players, game nights, and game stores near you.",
+  "organizer": "Rose City Tabletop",
+  "organizer_url": "https://example.org",
+  "contact_email": "hello@example.org",
+  "heading": "Who Plays Near You",
+  "tags_label": "Likes",
+  "join_text": "Send your display name, your city, and the games you like. Game nights and stores: send your public venue and a link.",
+  "categories": {
+    "player": { "label": "Player", "plural": "Players", "color": "#1F5C99", "people": true },
+    "game-night": { "label": "Game night", "plural": "Game nights", "color": "#2E7D32", "people": false },
+    "store": { "label": "Store", "plural": "Stores", "color": "#8E3B8E", "people": false },
+  },
+  "add_url": "",
+  "center": [45.52, -122.68],
+  "zoom": 10,
+  "colors": { "primary": "#1F5C99", "dark": "#1B1B2F", "background": "#FAFAF7" },
+  "tiles": "https://tile.openstreetmap.org/{z}/{x}/{y}.png",
+  "tiles_attribution": "© OpenStreetMap contributors",
+  "tiles_attribution_url": "https://www.openstreetmap.org/copyright",
+  "entries": [
+    { "name": "Sample Player", "type": "player", "city": "Portland, OR", "lat": 45.52, "lon": -122.68, "tags": ["euro games", "co-op"] },
+    { "name": "Another Sample", "type": "player", "city": "Beaverton, OR", "lat": 45.49, "lon": -122.80, "tags": ["war games"] },
+    { "name": "Sample Game Night", "type": "game-night", "city": "Portland, OR", "lat": 45.5231, "lon": -122.6765, "note": "Thursdays 6–10 PM. All welcome." },
+    { "name": "Sample Game Store", "type": "store", "city": "Portland, OR", "lat": 45.5152, "lon": -122.6584, "link": "https://example.org" },
+  ],
+}

@@ -1,0 +1,29 @@
+// Example: a birding club. Copy over map.jsonc to start from it.
+// Every entry here is a made-up sample. Replace them with real ones.
+{
+  "title": "Hill Country Birding Map",
+  "tagline": "Birders, outings, and public hotspots around Austin.",
+  "organizer": "Hill Country Birders",
+  "organizer_url": "https://example.org",
+  "contact_email": "hello@example.org",
+  "heading": "Who Birds Near You",
+  "tags_label": "Interests",
+  "join_text": "Send your display name, your city, and what you like to watch. Hotspots must be public land.",
+  "categories": {
+    "birder": { "label": "Birder", "plural": "Birders", "color": "#2F6B3A", "people": true },
+    "club": { "label": "Club", "plural": "Clubs", "color": "#24364F", "people": false },
+    "hotspot": { "label": "Hotspot", "plural": "Hotspots", "color": "#B5651D", "people": false },
+  },
+  "add_url": "",
+  "center": [30.27, -97.74],
+  "zoom": 9,
+  "colors": { "primary": "#2F6B3A", "dark": "#1E2A22", "background": "#FBFAF5" },
+  "tiles": "https://tile.openstreetmap.org/{z}/{x}/{y}.png",
+  "tiles_attribution": "© OpenStreetMap contributors",
+  "tiles_attribution_url": "https://www.openstreetmap.org/copyright",
+  "entries": [
+    { "name": "Sample Birder", "type": "birder", "city": "Austin, TX", "lat": 30.27, "lon": -97.74, "tags": ["warblers", "photography"] },
+    { "name": "Sample Birding Club", "type": "club", "city": "Austin, TX", "lat": 30.2672, "lon": -97.7431, "note": "Beginner walks on the first Saturday." },
+    { "name": "Sample Park", "type": "hotspot", "city": "Round Rock, TX", "lat": 30.5083, "lon": -97.6789, "note": "Sample public park." },
+  ],
+}
