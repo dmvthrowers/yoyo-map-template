@@ -11,6 +11,7 @@ import argparse
 import hashlib
 import html
 import json
+import os
 import re
 import shutil
 import sys
@@ -33,6 +34,7 @@ TEXT_DEFAULTS = {
 }
 
 errors, warnings = [], []
+BASE_URL = ""   # public address, e.g. https://example.org/map/ ; "" when unknown (set in main)
 
 
 def load_jsonc(path):
@@ -185,8 +187,9 @@ def csp(cfg):
             f"img-src 'self' {tile_src}; base-uri 'none'; form-action 'none'")
 
 
-def page(cfg, title, description, body):
+def page(cfg, title, description, body, slug="index"):
     e = html.escape
+    canonical = BASE_URL if slug == "index" else (BASE_URL + slug + ".html" if BASE_URL else "")
     return f"""<!doctype html>
 <html lang="en">
 <head>
@@ -196,7 +199,8 @@ def page(cfg, title, description, body):
 <meta name="referrer" content="strict-origin-when-cross-origin">
 <title>{e(title)}</title>
 <meta name="description" content="{e(description)}">
-<link rel="stylesheet" href="assets/vendor/leaflet/leaflet.css">
+<link rel="icon" href="assets/favicon.svg" type="image/svg+xml">
+{social_tags(cfg, title, description, canonical)}<link rel="stylesheet" href="assets/vendor/leaflet/leaflet.css">
 <link rel="stylesheet" href="assets/style.css">
 <link rel="stylesheet" href="assets/theme.css">
 </head>
@@ -210,6 +214,34 @@ def page(cfg, title, description, body):
 </body>
 </html>
 """
+
+
+def social_tags(cfg, title, description, canonical):
+    """Open Graph and Twitter tags always; canonical link and JSON-LD only once the public address is known."""
+    e = html.escape
+    tags = [
+        f'<meta property="og:type" content="website">',
+        f'<meta property="og:site_name" content="{e(cfg["title"])}">',
+        f'<meta property="og:title" content="{e(title)}">',
+        f'<meta property="og:description" content="{e(description)}">',
+        '<meta name="twitter:card" content="summary">',
+        f'<meta name="twitter:title" content="{e(title)}">',
+        f'<meta name="twitter:description" content="{e(description)}">',
+    ]
+    if canonical:
+        tags += [f'<link rel="canonical" href="{e(canonical)}">', f'<meta property="og:url" content="{e(canonical)}">']
+        data = {
+            "@context": "https://schema.org",
+            "@type": "WebSite",
+            "name": cfg["title"],
+            "description": description,
+            "url": BASE_URL,
+            "publisher": {"@type": "Organization", "name": cfg["organizer"],
+                          **({"url": cfg["organizer_url"]} if cfg.get("organizer_url") else {})},
+        }
+        # "</" can't appear in the JSON, so it can't close the script early.
+        tags.append('<script type="application/ld+json">' + json.dumps(data).replace("</", "<\\/") + "</script>")
+    return "\n".join(tags) + "\n"
 
 
 def header(cfg):
@@ -364,8 +396,15 @@ def build(config_path, out):
 <h1>Page Not Found</h1>
 <p>That page isn't here. <a href="index.html">Back to the map</a>.</p>
 </section>"""
-    (out / "404.html").write_text(page(cfg, f'Not found | {cfg["title"]}', description, missing), encoding="utf-8")
+    (out / "404.html").write_text(page(cfg, f'Not found | {cfg["title"]}', description, missing, slug="404"), encoding="utf-8")
     (out / ".nojekyll").write_text("", encoding="utf-8")
+    robots = "User-agent: *\nAllow: /\n"
+    if BASE_URL:
+        robots += f"\nSitemap: {BASE_URL}sitemap.xml\n"
+        (out / "sitemap.xml").write_text(
+            '<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n'
+            f"  <url><loc>{html.escape(BASE_URL)}</loc></url>\n</urlset>\n", encoding="utf-8")
+    (out / "robots.txt").write_text(robots, encoding="utf-8")
     counts = []
     for t, c in cfg["categories"].items():
         n = sum(r["type"] == t for r in rows)
@@ -378,8 +417,15 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Build the map site.")
     parser.add_argument("--config", default="map.jsonc", help="settings file (default: map.jsonc)")
     parser.add_argument("--out", default="_site", help="output folder (default: _site)")
+    parser.add_argument("--base-url", default=os.environ.get("SITE_URL", ""),
+                        help="public address, e.g. https://example.org/ (adds canonical links, JSON-LD and a sitemap)")
     parser.add_argument("--serve", action="store_true", help="preview at http://localhost:8000/")
     args = parser.parse_args()
+    BASE_URL = args.base_url.strip()
+    if BASE_URL and not BASE_URL.endswith("/"):
+        BASE_URL += "/"
+    if BASE_URL.startswith("http://"):
+        BASE_URL = "https://" + BASE_URL[len("http://"):]   # Pages reports http:// until Enforce HTTPS is on
     out_dir = (ROOT / args.out).resolve()
     build((ROOT / args.config).resolve(), out_dir)
     if args.serve:

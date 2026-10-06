@@ -3,6 +3,11 @@
 You're helping someone publish a city-level map of the people, groups, and places in their hobby
 (skill toys, board games, birding, or any niche community) from this template. The human-facing guide is [README.md](README.md). Read it, then follow this.
 
+## Goal
+A published, privacy-safe map for one community: valid `map.jsonc`, `python3 build.py` and
+`python3 scripts/check_site.py` both clean, GitHub Pages deploying from Actions, and a clear way for
+people to ask to be added. Pins for people are blurred; never publish exact home locations.
+
 ## Steps
 1. **Collect facts from the user:** the hobby, map title, tagline, organizer name and URL, a shared
    contact email, the categories (label, plural, color, and whether each is people or places), the

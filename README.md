@@ -109,6 +109,10 @@ python3 build.py --config examples/birding-club.jsonc --serve
 
 Python 3.9 or newer. Nothing to install.
 
+To add search-engine tags (canonical link, structured data, `sitemap.xml`), give the build your
+public address: `python3 build.py --base-url https://example.org/map/`. On GitHub Pages the deploy
+workflow does this for you.
+
 ## What's in here
 
 | Path | What |
@@ -118,6 +122,7 @@ Python 3.9 or newer. Nothing to install.
 | `build.py` | Checks the settings, blurs people's pins, writes `_site/` |
 | `scripts/check_site.py` | Runs before every deploy: security policy, links, and privacy checks |
 | `assets/style.css`, `assets/map.js` | Look and map behavior |
+| `assets/favicon.svg` | The browser-tab icon (replace it with your own) |
 | `assets/vendor/leaflet/` | [Leaflet](https://leafletjs.com) 1.9.4, the map library, served from your own site |
 | `.github/workflows/deploy.yml` | Build, check, and publish on every commit to `main` |
 | `.github/ISSUE_TEMPLATE/add-to-map.yml` | The public "Add me to the map" form |
@@ -133,5 +138,30 @@ busy, switch `tiles` to another provider. The build adds the new host to the sec
 
 When you need self-serve sign-ups, email verification, or thousands of pins, look at the full
 [yoyo-player-map](https://github.com/dmvthrowers/yoyo-player-map) app behind map.dmvthrowers.club.
+That app is MIT licensed (this template is public domain) and blurs players to about 10 miles; this
+template snaps them to a roughly 10 km grid.
 Pair this map with a club website from
 [yoyoclub-template](https://github.com/dmvthrowers/yoyoclub-template).
+
+## Words you'll see
+
+| Word | Plain meaning |
+| --- | --- |
+| **JSONC** | A settings file that allows `//` comments, so every setting can explain itself |
+| **GitHub Actions** | GitHub's free robot. It builds and checks your site every time you save a change |
+| **GitHub Pages** | GitHub's free web hosting for the site the robot builds |
+| **CSP** | Content Security Policy: a rule in each page that only lets it load its own files |
+| **Preset** | A ready-made set of defaults (colors, wording) you start from and then change |
+
+## The family
+
+These templates share one look, one way of working, and one checklist. Pick the one that fits.
+
+| Template | Use it for |
+| --- | --- |
+| [yoyoclub-template](https://github.com/dmvthrowers/yoyoclub-template) | A club website: meetups, team, gallery, FAQ |
+| [yoyo-contest-template](https://github.com/dmvthrowers/yoyo-contest-template) | A contest website: schedule, divisions, sponsors, results |
+| [Scouts-Template-Site](https://github.com/dmvthrowers/Scouts-Template-Site) | A Scout pack or troop, Girl Scout troop, or kids club website |
+| [yoyo-map-template](https://github.com/dmvthrowers/yoyo-map-template) | A city-level community map with privacy built in |
+| [yoyo-registration-template](https://github.com/dmvthrowers/yoyo-registration-template) | Contest registration, payments and day-of tools (Next.js, Stripe, Supabase) |
+| [yoyo-player-map](https://github.com/dmvthrowers/yoyo-player-map) | The full player map app behind map.dmvthrowers.club |

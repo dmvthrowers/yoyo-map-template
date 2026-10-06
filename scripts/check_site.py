@@ -46,6 +46,8 @@ class Page(HTMLParser):
         if tag == "script" and "src" not in a:
             if a.get("type") == "application/json" and a.get("id") == "map-data":
                 self._in_data = True
+            elif a.get("type") == "application/ld+json":
+                pass   # structured data for search engines: data, not code
             else:
                 self.problems.append("inline <script>")
         for k, v in a.items():
