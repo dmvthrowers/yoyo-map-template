@@ -1,0 +1,85 @@
+const createNextIntlPlugin = require('next-intl/plugin');
+const { withSentryConfig } = require('@sentry/nextjs/config');
+const withNextIntl = createNextIntlPlugin('./i18n/request.ts');
+
+/** @type {import('next').NextConfig} */
+const csp = [
+  "default-src 'self'",
+  "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://challenges.cloudflare.com",
+  "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
+  "font-src 'self' data: https://fonts.gstatic.com",
+  "img-src 'self' data: blob: https://server.arcgisonline.com https://unpkg.com",
+  "connect-src 'self' https://*.supabase.co https://*.ingest.sentry.io https://*.ingest.us.sentry.io",
+  // Cloudflare Turnstile renders its challenge in an iframe.
+  "frame-src https://challenges.cloudflare.com",
+  "frame-ancestors 'none'",
+  "base-uri 'self'",
+  "form-action 'self'",
+  "object-src 'none'",
+  "upgrade-insecure-requests",
+].join('; ');
+
+const securityHeaders = [
+  { key: 'Content-Security-Policy', value: csp },
+  { key: 'X-Content-Type-Options', value: 'nosniff' },
+  { key: 'X-Frame-Options', value: 'DENY' },
+  { key: 'Referrer-Policy', value: 'strict-origin-when-cross-origin' },
+  {
+    key: 'Permissions-Policy',
+    value: 'geolocation=(), camera=(), microphone=(), payment=(), usb=(), interest-cohort=()',
+  },
+  {
+    key: 'Strict-Transport-Security',
+    value: 'max-age=63072000; includeSubDomains; preload',
+  },
+];
+
+const nextConfig = {
+  reactStrictMode: true,
+  async redirects() {
+    return [
+      // Browsers and bots always request these; serve the SVG favicon we have.
+      { source: '/favicon.ico', destination: '/favicon.svg', permanent: false },
+      { source: '/favicon.png', destination: '/favicon.svg', permanent: false },
+      // Default-locale fallbacks for shared direct links (change /en if you change the default language).
+      { source: '/map', destination: '/en/map', permanent: false },
+      { source: '/players', destination: '/en/players', permanent: false },
+      { source: '/submit', destination: '/en/submit', permanent: false },
+      { source: '/profile', destination: '/en/profile', permanent: false },
+      { source: '/report', destination: '/en/report', permanent: false },
+      { source: '/status', destination: '/en/status', permanent: false },
+      { source: '/contact', destination: '/en/contact', permanent: false },
+      { source: '/legal/privacy', destination: '/en/legal/privacy', permanent: false },
+      { source: '/legal/terms', destination: '/en/legal/terms', permanent: false },
+      { source: '/legal/security', destination: '/en/legal/security', permanent: false },
+      { source: '/confirm-location/:token', destination: '/en/confirm-location/:token', permanent: false },
+    ];
+  },
+  async headers() {
+    return [
+      {
+        source: '/:path*',
+        headers: securityHeaders,
+      },
+      // Long-lived cache for immutable static assets
+      {
+        source: '/favicon.svg',
+        headers: [{ key: 'Cache-Control', value: 'public, max-age=31536000, immutable' }],
+      },
+    ];
+  },
+  async rewrites() {
+    return [
+      { source: '/favicon.ico', destination: '/favicon.svg' },
+      { source: '/favicon.png', destination: '/favicon.svg' },
+    ];
+  },
+};
+
+// Source maps upload only when SENTRY_AUTH_TOKEN, SENTRY_ORG and
+// SENTRY_PROJECT are set; builds without them skip the upload.
+module.exports = withSentryConfig(withNextIntl(nextConfig), {
+  silent: !process.env.CI,
+  telemetry: false,
+  widenClientFileUpload: true,
+});

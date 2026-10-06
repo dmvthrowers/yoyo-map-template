@@ -1,0 +1,405 @@
+import { unstable_cache } from 'next/cache';
+import { supabase } from '@/lib/supabase';
+import { slugify } from './locationSlug';
+
+// Last updated: 2026-05-12
+
+const QUERY_PATH_LOGS_ENABLED = process.env.LOCATION_QUERY_LOGS === '1';
+
+function logQueryPath(label: string, details?: Record<string, string | number | boolean>) {
+  if (!QUERY_PATH_LOGS_ENABLED) return;
+  if (details) console.info('[locations:path]', label, details);
+  else console.info('[locations:path]', label);
+}
+
+// Region normalization map: maps known abbreviations/variants to canonical display name
+export const REGION_NORMALIZATION: Record<string, string> = {
+  // US states (add more as needed)
+  al: 'Alabama',
+  ak: 'Alaska',
+  az: 'Arizona',
+  ar: 'Arkansas',
+  ca: 'California',
+  co: 'Colorado',
+  ct: 'Connecticut',
+  de: 'Delaware',
+  fl: 'Florida',
+  ga: 'Georgia',
+  hi: 'Hawaii',
+  id: 'Idaho',
+  il: 'Illinois',
+  in: 'Indiana',
+  ia: 'Iowa',
+  ks: 'Kansas',
+  ky: 'Kentucky',
+  la: 'Louisiana',
+  me: 'Maine',
+  md: 'Maryland',
+  ma: 'Massachusetts',
+  mi: 'Michigan',
+  mn: 'Minnesota',
+  ms: 'Mississippi',
+  mo: 'Missouri',
+  mt: 'Montana',
+  ne: 'Nebraska',
+  nv: 'Nevada',
+  nh: 'New Hampshire',
+  nj: 'New Jersey',
+  nm: 'New Mexico',
+  ny: 'New York',
+  nc: 'North Carolina',
+  nd: 'North Dakota',
+  oh: 'Ohio',
+  ok: 'Oklahoma',
+  or: 'Oregon',
+  pa: 'Pennsylvania',
+  ri: 'Rhode Island',
+  sc: 'South Carolina',
+  sd: 'South Dakota',
+  tn: 'Tennessee',
+  tx: 'Texas',
+  ut: 'Utah',
+  vt: 'Vermont',
+  va: 'Virginia',
+  wa: 'Washington',
+  wv: 'West Virginia',
+  wi: 'Wisconsin',
+  wy: 'Wyoming',
+  // Add more as needed
+};
+
+// Returns canonical display name for a region slug or raw name
+export function canonicalRegionName(input: string | null | undefined): string {
+  if (!input) return '';
+  const slug = slugify(input);
+  return REGION_NORMALIZATION[slug] || input;
+}
+
+// Returns true if a region name/slug is structurally invalid (numeric-only,
+// too short, pure punctuation). Mirrors the DB CHECK constraint added in v18.
+// Use this to refuse to render broken region pages on the public site even if
+// junk somehow slips into the data layer.
+export function isJunkRegion(input: string | null | undefined): boolean {
+  if (input === null || input === undefined) return false; // null = "no region", not junk
+  const trimmed = String(input).trim();
+  if (trimmed.length < 2) return true;
+  if (/^[0-9]+$/.test(trimmed)) return true;
+  if (/^[\p{P}\s]+$/u.test(trimmed)) return true;
+  return false;
+}
+
+// Country normalization map: maps all known codes/variants to canonical display name
+const COUNTRY_NORMALIZATION: Record<string, string> = {
+  // United States
+  us: 'United States',
+  usa: 'United States',
+  "united-states": 'United States',
+  // Canada
+  ca: 'Canada',
+  canada: 'Canada',
+  // United Kingdom
+  uk: 'United Kingdom',
+  "united-kingdom": 'United Kingdom',
+  gb: 'United Kingdom',
+  "great-britain": 'United Kingdom',
+  // New Zealand
+  nz: 'New Zealand',
+  "new-zealand": 'New Zealand',
+  // Spain
+  es: 'Spain',
+  spain: 'Spain',
+  // France
+  fr: 'France',
+  france: 'France',
+  // Germany
+  de: 'Germany',
+  germany: 'Germany',
+  // Brazil
+  br: 'Brazil',
+  brazil: 'Brazil',
+  // Japan
+  jp: 'Japan',
+  japan: 'Japan',
+  // Honduras
+  hn: 'Honduras',
+  honduras: 'Honduras',
+  // Belgium
+  be: 'Belgium',
+  belgium: 'Belgium',
+  // Ukraine
+  ua: 'Ukraine',
+  ukraine: 'Ukraine',
+  // Hungary
+  hu: 'Hungary',
+  hungary: 'Hungary',
+  // Czech Republic
+  cz: 'Czech Republic',
+  "czech-republic": 'Czech Republic',
+  // Singapore
+  sg: 'Singapore',
+  singapore: 'Singapore',
+  // Mexico
+  mx: 'Mexico',
+  mexico: 'Mexico',
+  // United Arab Emirates
+  ae: 'United Arab Emirates',
+  "united-arab-emirates": 'United Arab Emirates',
+  uae: 'United Arab Emirates',
+  // Denmark
+  dk: 'Denmark',
+  denmark: 'Denmark',
+  // Estonia
+  ee: 'Estonia',
+  estonia: 'Estonia',
+  // Slovenia
+  si: 'Slovenia',
+  slovenia: 'Slovenia',
+  // Australia
+  au: 'Australia',
+  australia: 'Australia',
+  // Austria
+  at: 'Austria',
+  austria: 'Austria',
+  // China
+  cn: 'China',
+  china: 'China',
+  // Finland
+  fi: 'Finland',
+  finland: 'Finland',
+  // India
+  "in": 'India',
+  india: 'India',
+  // Indonesia
+  id: 'Indonesia',
+  indonesia: 'Indonesia',
+  // Ireland
+  ie: 'Ireland',
+  ireland: 'Ireland',
+  // Israel
+  il: 'Israel',
+  israel: 'Israel',
+  // Italy
+  it: 'Italy',
+  italy: 'Italy',
+  // Latvia
+  lv: 'Latvia',
+  latvia: 'Latvia',
+  // Lithuania
+  lt: 'Lithuania',
+  lithuania: 'Lithuania',
+  // Malaysia
+  my: 'Malaysia',
+  malaysia: 'Malaysia',
+  // Netherlands
+  nl: 'Netherlands',
+  netherlands: 'Netherlands',
+  // Norway
+  no: 'Norway',
+  norway: 'Norway',
+  // Philippines
+  ph: 'Philippines',
+  philippines: 'Philippines',
+  // Poland
+  pl: 'Poland',
+  poland: 'Poland',
+  // Portugal
+  pt: 'Portugal',
+  portugal: 'Portugal',
+  // Romania
+  ro: 'Romania',
+  romania: 'Romania',
+  // Russia
+  ru: 'Russia',
+  russia: 'Russia',
+  // South Korea
+  kr: 'South Korea',
+  "south-korea": 'South Korea',
+  // Sweden
+  se: 'Sweden',
+  sweden: 'Sweden',
+  // Switzerland
+  ch: 'Switzerland',
+  switzerland: 'Switzerland',
+  // Taiwan
+  tw: 'Taiwan',
+  taiwan: 'Taiwan',
+  // Thailand
+  th: 'Thailand',
+  thailand: 'Thailand',
+  // Turkey
+  tr: 'Turkey',
+  turkey: 'Turkey',
+};
+
+// Returns canonical display name for a country slug or raw name
+export function canonicalCountryName(input: string): string {
+  const slug = slugify(input);
+  return COUNTRY_NORMALIZATION[slug] || input;
+}
+
+export interface LeanEntry {
+  id: string;
+  display_name: string;
+  city: string;
+  region: string | null;
+  country: string;
+  entity_type: 'person' | 'shop' | 'club';
+  lat: number | null;
+  lng: number | null;
+}
+
+export interface PublicEntry extends LeanEntry {
+  bio: string | null;
+  socials: Record<string, string>;
+}
+
+// Lean fetch — no bio/socials. Used by players directory pages that only need
+// location data (country/region/city lists, PlayersTable).
+export const fetchLeanEntries = unstable_cache(async (): Promise<LeanEntry[]> => {
+  try {
+    logQueryPath('supabase.select.lean');
+    const { data, error } = await supabase
+      .from('map_entries')
+      .select('id, display_name, city, region, country, entity_type, lat, lng');
+    if (error) {
+      console.error('[locations] lean fetch failed — code:', error.code, '| message:', error.message);
+      return [];
+    }
+    return (data ?? []).map((e) => ({
+      ...e,
+      entity_type: (e.entity_type ?? 'person') as LeanEntry['entity_type'],
+      lat: e.lat ?? null,
+      lng: e.lng ?? null,
+    }));
+  } catch (e) {
+    console.error('[locations] lean fetch error:', e);
+    return [];
+  }
+}, ['lean-entries'], { revalidate: 86400, tags: ['public-entries'] });
+
+async function fetchPublicEntriesByIds(ids: string[]): Promise<PublicEntry[]> {
+  if (ids.length === 0) return [];
+  try {
+    logQueryPath('supabase.select.full.by_ids', { count: ids.length });
+    const { data, error } = await supabase
+      .from('map_entries')
+      .select('id, display_name, city, region, country, bio, socials, entity_type, lat, lng')
+      .in('id', ids);
+    if (error) {
+      console.error('[locations] scoped full fetch failed — code:', error.code, '| message:', error.message);
+      return [];
+    }
+    const byId = new Map((data ?? []).map((e) => [e.id, {
+      ...e,
+      entity_type: (e.entity_type ?? 'person') as PublicEntry['entity_type'],
+      socials: e.socials ?? {},
+      lat: e.lat ?? null,
+      lng: e.lng ?? null,
+    }]));
+    return ids.map((id) => byId.get(id)).filter((e): e is PublicEntry => Boolean(e));
+  } catch (e) {
+    console.error('[locations] scoped full fetch error:', e);
+    return [];
+  }
+}
+
+export interface LocationKey {
+  country: string;
+  region: string | null;
+  city: string;
+}
+
+// Distinct (country, region, city) combos with their canonical casing.
+export async function listLocations(): Promise<LocationKey[]> {
+  const entries = await fetchLeanEntries();
+  const seen = new Map<string, LocationKey>();
+  for (const e of entries) {
+    const key = `${e.country}|${e.region ?? ''}|${e.city}`;
+    if (!seen.has(key)) {
+      seen.set(key, { country: e.country, region: e.region, city: e.city });
+    }
+  }
+  return [...seen.values()];
+}
+
+// Lean region filter — for region pages that only render PlayersTable + city links.
+export async function leanEntriesInRegion(
+  countrySlug: string,
+  regionSlug: string,
+): Promise<LeanEntry[]> {
+  logQueryPath('branch.players.region.lean', { countrySlug, regionSlug });
+  const all = await fetchLeanEntries();
+  const expandedRegionSlug = slugify(canonicalRegionName(regionSlug));
+  return all.filter((e) => {
+    const countryMatch = slugify(canonicalCountryName(e.country)) === countrySlug;
+    const regionVariants = [e.region, canonicalRegionName(e.region)];
+    return (
+      countryMatch &&
+      regionVariants.some((r) => slugify(r) === regionSlug || slugify(r) === expandedRegionSlug)
+    );
+  });
+}
+
+export async function leanEntriesInCountry(countrySlug: string): Promise<LeanEntry[]> {
+  logQueryPath('branch.players.country.lean', { countrySlug });
+  const all = await fetchLeanEntries();
+  return all.filter((e) => slugify(canonicalCountryName(e.country)) === countrySlug);
+}
+
+export async function leanEntriesInCity(
+  countrySlug: string,
+  regionSlug: string,
+  citySlug: string,
+): Promise<LeanEntry[]> {
+  logQueryPath('branch.players.city.lean', { countrySlug, regionSlug, citySlug });
+  const all = await fetchLeanEntries();
+  const expandedRegionSlug = slugify(canonicalRegionName(regionSlug));
+  return all.filter((e) => {
+    const countryMatch = slugify(canonicalCountryName(e.country)) === countrySlug;
+    const hasNoRegion = !e.region || e.region.trim() === '';
+    const regionMatch =
+      regionSlug === '_other'
+        ? hasNoRegion
+        : [e.region, canonicalRegionName(e.region)].some(
+            (r) => slugify(r) === regionSlug || slugify(r) === expandedRegionSlug,
+          );
+    return countryMatch && regionMatch && slugify(e.city) === citySlug;
+  });
+}
+
+export async function entriesInCountry(countrySlug: string): Promise<PublicEntry[]> {
+  logQueryPath('branch.players.country.full', { countrySlug });
+  return unstable_cache(
+    async (): Promise<PublicEntry[]> => {
+      const lean = await leanEntriesInCountry(countrySlug);
+      return fetchPublicEntriesByIds(lean.map((e) => e.id));
+    },
+    ['public-entries-country', countrySlug],
+    { revalidate: 86400, tags: ['public-entries'] },
+  )();
+}
+
+
+export async function entriesInRegion(
+  countrySlug: string,
+  regionSlug: string,
+): Promise<PublicEntry[]> {
+  const lean = await leanEntriesInRegion(countrySlug, regionSlug);
+  return fetchPublicEntriesByIds(lean.map((e) => e.id));
+}
+
+
+export async function entriesInCity(
+  countrySlug: string,
+  regionSlug: string,
+  citySlug: string,
+): Promise<PublicEntry[]> {
+  const lean = await leanEntriesInCity(countrySlug, regionSlug, citySlug);
+  return fetchPublicEntriesByIds(lean.map((e) => e.id));
+}
+
+// Resolve a slug back to canonical name (using the first matching entry).
+export function canonicalName(entries: LeanEntry[], field: 'country' | 'region' | 'city'): string | null {
+  const v = entries[0]?.[field];
+  return v ?? null;
+}
