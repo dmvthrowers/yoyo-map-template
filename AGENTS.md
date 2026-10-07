@@ -32,7 +32,7 @@ people to ask to be added. Pins for people are blurred; never publish exact home
   names of children. Only list people who asked; remove on request.
 - **Security:** no inline `<script>` (the JSON data block is the one exception), `<style>`,
   `style=""`, or `on*=` handlers. No `http://` links. No trackers, analytics, or outside fonts. Leaflet
-  is vendored in `assets/vendor/leaflet/`. Don't swap it for a CDN.
+  and Leaflet.markercluster are vendored in `assets/vendor/`. Don't swap them for a CDN.
 - **Look:** square corners, no `box-shadow`, flat boxes. Colors (brand and per-category pins) come
   from the settings via the built `theme.css`. Don't hard-code hex values in `style.css`.
 - **No hobby words in code.** Wording lives in the settings (`heading`, `tags_label`, `join_text`,

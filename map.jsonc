@@ -110,8 +110,8 @@
     {
       "name": "Sample Toy Shop",
       "type": "shop",
-      "city": "Peoria, IL",
-      "lat": 40.6936, "lon": -89.5890,
+      "city": "Madison, WI",
+      "lat": 43.0731, "lon": -89.4012,
       "tags": ["yo-yo"],
       "note": "Sample entry"
     },

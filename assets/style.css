@@ -48,8 +48,12 @@ a { color: var(--primary); }
 
 .map { height: 65vh; min-height: 360px; border: 2px solid var(--dark); }
 .pin { border: 2px solid #fff; outline: 1px solid var(--dark); }
+/* A cluster is a square badge with the count; its color comes from theme.css (.cluster-<key>). */
+.cluster { border: 2px solid #fff; outline: 1px solid var(--dark); font-weight: 700; font-size: 0.9rem; line-height: 26px; text-align: center; }
 
 .table-scroll { overflow-x: auto; }
+.places { display: flex; flex-wrap: wrap; gap: 4px 20px; padding: 0; list-style: none; }
+.places a { display: inline-block; min-height: 44px; line-height: 44px; }
 .entries { width: 100%; border-collapse: collapse; border: 2px solid var(--dark); }
 .entries th, .entries td { text-align: left; padding: 10px 12px; border-bottom: 1px solid var(--dark); vertical-align: top; }
 .entries th { background: var(--dark); color: #fff; }
