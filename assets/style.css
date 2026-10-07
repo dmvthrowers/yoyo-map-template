@@ -50,6 +50,8 @@ a { color: var(--primary); }
 .pin { border: 2px solid #fff; outline: 1px solid var(--dark); }
 
 .table-scroll { overflow-x: auto; }
+.places { display: flex; flex-wrap: wrap; gap: 4px 20px; padding: 0; list-style: none; }
+.places a { display: inline-block; min-height: 44px; line-height: 44px; }
 .entries { width: 100%; border-collapse: collapse; border: 2px solid var(--dark); }
 .entries th, .entries td { text-align: left; padding: 10px 12px; border-bottom: 1px solid var(--dark); vertical-align: top; }
 .entries th { background: var(--dark); color: #fff; }

@@ -85,6 +85,8 @@ For `lat` and `lon`, use the **city's** coordinates. Search the city on
 **Show address**. For people, the build blurs whatever you enter. Places are shown exactly where you
 put them, so use a **public** meeting spot, storefront, or park.
 
+**Browse by place.** Entries are grouped by whatever follows the last comma in `city` ("Arlington, VA" goes under "VA"). To group differently, add `"region": "Northern Virginia"` to an entry. When your entries span two or more places, the build writes one plain page per place (`place-va.html`), links them under the list, and adds them to the sitemap.
+
 Only add people who asked to be listed, with a parent's OK for kids, and never a child's full name.
 Remove anyone who asks, the same day: delete their block and commit.
 
