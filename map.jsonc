@@ -56,6 +56,12 @@
     "background": "#fffdfa"
   },
 
+  // ---------- Share image ----------
+  // The picture shown when the map's address is pasted into a chat or social post.
+  // "" makes the build draw a plain card in your colors (needs the public address, which
+  // GitHub Actions supplies). Or give an https:// address of a 1200x630 image.
+  "og_image": "",
+
   // ---------- Map tiles ----------
   // The street map under the pins. OpenStreetMap's tiles are free for small, low-traffic
   // sites (https://operations.osmfoundation.org/policies/tiles/). Change both lines if you
