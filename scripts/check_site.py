@@ -7,7 +7,9 @@
 Fails on: a missing Content Security Policy or one with 'unsafe-inline', inline scripts
 (other than the map's JSON data block), inline styles or event handlers, http:// links,
 broken internal links, a missing title or skip link, and any published entry with fields
-beyond the allowed ones or a pin in a "people" category that wasn't blurred. Prints "OK" when clean.
+beyond the allowed ones or a pin in a "people" category that wasn't blurred. With --real (your
+copy's deploy workflow), it also fails while the template's sample content is still on the map.
+Prints "OK" when clean.
 """
 import argparse
 import json
@@ -23,6 +25,9 @@ sys.path.insert(0, str(ROOT))
 import build  # noqa: E402  (reuses the same rules the build applies)
 
 errors = []
+# Text that only appears in the template's sample settings (see --real). Reserved example domains
+# never belong on a real map.
+SAMPLE_MARKERS = ("example.org", "example.com", "Springfield Yo-Yo Map", "Springfield Throwers", "Sample Player")
 
 
 class Page(HTMLParser):
@@ -119,6 +124,8 @@ def main():
     parser = argparse.ArgumentParser(description="Check the built map site.")
     parser.add_argument("--config", default="map.jsonc", help="settings file the site was built from")
     parser.add_argument("--site", default="_site", help="built site folder")
+    parser.add_argument("--real", action="store_true",
+                        help="this is a live map: fail while the template's sample content is still on it")
     args = parser.parse_args()
     SITE, CONFIG = (ROOT / args.site).resolve(), (ROOT / args.config).resolve()
     if not (SITE / "index.html").exists():
@@ -129,6 +136,12 @@ def main():
         if path.name == "index.html":
             raw = data
     check_data(raw)
+    if args.real:
+        found = sorted({m for path in SITE.glob("*.html") for m in SAMPLE_MARKERS
+                        if m in path.read_text(encoding="utf-8")})
+        if found:
+            errors.append("the map still shows the template's sample content (" + ", ".join(found) + "). "
+                          "Put your own title, organizer, contact email and entries in map.jsonc.")
     if errors:
         print("Site check failed:")
         for err in errors:

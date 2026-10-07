@@ -34,9 +34,14 @@ jobs:
       - name: Build and check
         env:
           SITE_URL: ${{ steps.pages.outputs.base_url }}
+        # The original template repo publishes its sample map; your copy must replace it first.
         run: |
           python3 build.py
-          python3 scripts/check_site.py
+          if [ "${GITHUB_REPOSITORY,,}" = "dmvthrowers/yoyo-map-template" ]; then
+            python3 scripts/check_site.py
+          else
+            python3 scripts/check_site.py --real
+          fi
       - name: Check the example maps still build
         run: |
           for f in examples/*.jsonc; do

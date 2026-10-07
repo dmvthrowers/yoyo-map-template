@@ -66,6 +66,10 @@ You need a free [GitHub account](https://github.com/signup).
 5. **Commit.** GitHub builds and publishes the map in about a minute. Find the address under
    **Settings → Pages**.
 
+   A red X on the Actions tab that says **"the map still shows the template's sample content"**
+   means the sample title, organizer, `example.org` addresses or sample entries are still in
+   `map.jsonc`. Your copy won't publish them; replace them and commit again.
+
 ### Adding an entry
 
 Copy a block in `entries` and change it. `type` is one of your category keys:
