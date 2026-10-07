@@ -37,8 +37,24 @@
     return box;
   }
 
+  // One cluster group per category, so the checkboxes still show and hide whole categories.
+  // Badges are flat squares in the category color; animations are off.
   var layers = {};
-  Object.keys(s.labels).forEach(function (t) { layers[t] = L.layerGroup().addTo(map); });
+  Object.keys(s.labels).forEach(function (t) {
+    layers[t] = L.markerClusterGroup({
+      maxClusterRadius: 40,
+      showCoverageOnHover: false,
+      animate: false,
+      animateAddingMarkers: false,
+      iconCreateFunction: function (cluster) {
+        return L.divIcon({
+          html: String(cluster.getChildCount()),
+          className: "cluster cluster-" + t,
+          iconSize: [30, 30]
+        });
+      }
+    }).addTo(map);
+  });
   data.entries.forEach(function (e) {
     var icon = L.divIcon({ className: "pin pin-" + e.type, iconSize: [14, 14] });
     L.marker([e.lat, e.lon], { icon: icon, title: e.name, alt: e.name })

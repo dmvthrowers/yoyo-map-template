@@ -13,12 +13,12 @@ thousands.
 - **Cost:** $0 on GitHub Pages.
 - **Time:** about 15 minutes from "Use this template" to a live map.
 - **Skills:** you can edit a text file in your web browser. An AI coding agent can do the whole thing (see [AGENTS.md](AGENTS.md)).
-- **License:** [Unlicense](LICENSE), public domain. Leaflet, in `assets/vendor/leaflet/`, keeps its own [BSD-2 license](assets/vendor/leaflet/LICENSE).
+- **License:** [Unlicense](LICENSE), public domain. Leaflet, in `assets/vendor/leaflet/`, keeps its own [BSD-2 license](assets/vendor/leaflet/LICENSE), and Leaflet.markercluster, in `assets/vendor/leaflet.markercluster/`, its [MIT license](assets/vendor/leaflet.markercluster/LICENSE).
 
 **What you get:** one page with:
 
 - **A map** with square pins in your own categories (players, clubs, shops, or birders, hotspots,
-  game nights...), and checkboxes to show or hide each one
+  game nights...). Pins that crowd together merge into a numbered square; click it to zoom in. Checkboxes show or hide each category.
 - **A list of everyone** under the map. It works without JavaScript and with screen readers.
 - **"Get on the map"** and **"How your privacy works"** sections, written from your settings
 - An **"Add me to the map"** issue form, if you want people to ask through GitHub
@@ -124,6 +124,7 @@ workflow does this for you.
 | `assets/style.css`, `assets/map.js` | Look and map behavior |
 | `assets/favicon.svg` | The browser-tab icon (replace it with your own) |
 | `assets/vendor/leaflet/` | [Leaflet](https://leafletjs.com) 1.9.4, the map library, served from your own site |
+| `assets/vendor/leaflet.markercluster/` | [Leaflet.markercluster](https://github.com/Leaflet/Leaflet.markercluster) 1.5.3, which groups nearby pins into a numbered square; click one to zoom in |
 | `.github/workflows/deploy.yml` | Build, check, and publish on every commit to `main` |
 | `.github/ISSUE_TEMPLATE/add-to-map.yml` | The public "Add me to the map" form |
 
