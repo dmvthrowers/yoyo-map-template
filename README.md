@@ -13,12 +13,12 @@ thousands.
 - **Cost:** $0 on GitHub Pages.
 - **Time:** about 15 minutes from "Use this template" to a live map.
 - **Skills:** you can edit a text file in your web browser. An AI coding agent can do the whole thing (see [AGENTS.md](AGENTS.md)).
-- **License:** [Unlicense](LICENSE), public domain. Leaflet, in `assets/vendor/leaflet/`, keeps its own [BSD-2 license](assets/vendor/leaflet/LICENSE).
+- **License:** [Unlicense](LICENSE), public domain. Leaflet, in `assets/vendor/leaflet/`, keeps its own [BSD-2 license](assets/vendor/leaflet/LICENSE), and Leaflet.markercluster, in `assets/vendor/leaflet.markercluster/`, its [MIT license](assets/vendor/leaflet.markercluster/LICENSE).
 
 **What you get:** one page with:
 
 - **A map** with square pins in your own categories (players, clubs, shops, or birders, hotspots,
-  game nights...), and checkboxes to show or hide each one
+  game nights...). Pins that crowd together merge into a numbered square; click it to zoom in. Checkboxes show or hide each category.
 - **A search box** that narrows the map and the list by name, city, or tag, and zooms to the
   matches (never closer than city level)
 - **A list of everyone** under the map. It works without JavaScript and with screen readers.
@@ -68,6 +68,10 @@ You need a free [GitHub account](https://github.com/signup).
 5. **Commit.** GitHub builds and publishes the map in about a minute. Find the address under
    **Settings → Pages**.
 
+   A red X on the Actions tab that says **"the map still shows the template's sample content"**
+   means the sample title, organizer, `example.org` addresses or sample entries are still in
+   `map.jsonc`. Your copy won't publish them; replace them and commit again.
+
 ### Adding an entry
 
 Copy a block in `entries` and change it. `type` is one of your category keys:
@@ -86,6 +90,8 @@ For `lat` and `lon`, use the **city's** coordinates. Search the city on
 [openstreetmap.org](https://www.openstreetmap.org/), right-click the city center, and choose
 **Show address**. For people, the build blurs whatever you enter. Places are shown exactly where you
 put them, so use a **public** meeting spot, storefront, or park.
+
+**Browse by place.** Entries are grouped by whatever follows the last comma in `city` ("Arlington, VA" goes under "VA"). To group differently, add `"region": "Northern Virginia"` to an entry. When your entries span two or more places, the build writes one plain page per place (`place-va.html`), links them under the list, and adds them to the sitemap.
 
 Only add people who asked to be listed, with a parent's OK for kids, and never a child's full name.
 Remove anyone who asks, the same day: delete their block and commit.
@@ -126,6 +132,7 @@ workflow does this for you.
 | `assets/style.css`, `assets/map.js` | Look and map behavior |
 | `assets/favicon.svg` | The browser-tab icon (replace it with your own) |
 | `assets/vendor/leaflet/` | [Leaflet](https://leafletjs.com) 1.9.4, the map library, served from your own site |
+| `assets/vendor/leaflet.markercluster/` | [Leaflet.markercluster](https://github.com/Leaflet/Leaflet.markercluster) 1.5.3, which groups nearby pins into a numbered square; click one to zoom in |
 | `.github/workflows/deploy.yml` | Build, check, and publish on every commit to `main` |
 | `.github/ISSUE_TEMPLATE/add-to-map.yml` | The public "Add me to the map" form |
 

@@ -42,13 +42,31 @@
     return String(text).normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase();
   }
 
+  // One cluster group per category, so the checkboxes still show and hide whole categories.
+  // Badges are flat squares in the category color; animations are off.
+  var layers = {};
+  Object.keys(s.labels).forEach(function (t) {
+    layers[t] = L.markerClusterGroup({
+      maxClusterRadius: 40,
+      showCoverageOnHover: false,
+      animate: false,
+      animateAddingMarkers: false,
+      iconCreateFunction: function (cluster) {
+        return L.divIcon({
+          html: String(cluster.getChildCount()),
+          className: "cluster cluster-" + t,
+          iconSize: [30, 30]
+        });
+      }
+    }).addTo(map);
+  });
+
   // Entries and table rows are written in the same order, so index i is the same entry in both.
   var rows = document.querySelectorAll("tr[data-type]");
-  var pins = L.layerGroup().addTo(map);
   var items = data.entries.map(function (e, i) {
     var icon = L.divIcon({ className: "pin pin-" + e.type, iconSize: [14, 14] });
     var marker = L.marker([e.lat, e.lon], { icon: icon, title: e.name, alt: e.name }).bindPopup(popup(e));
-    marker.addTo(pins);
+    marker.addTo(layers[e.type]);
     var text = [e.name, e.city, s.labels[e.type], (e.tags || []).join(" "), e.note || ""].join(" ");
     return { entry: e, marker: marker, row: rows[i], text: fold(text), shown: true };
   });
@@ -64,7 +82,7 @@
     items.forEach(function (it) {
       var show = shownTypes[it.entry.type] && words.every(function (w) { return it.text.indexOf(w) !== -1; });
       if (show !== it.shown) {
-        if (show) pins.addLayer(it.marker); else pins.removeLayer(it.marker);
+        if (show) layers[it.entry.type].addLayer(it.marker); else layers[it.entry.type].removeLayer(it.marker);
         it.shown = show;
       }
       if (it.row) it.row.hidden = !show;

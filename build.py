@@ -19,7 +19,7 @@ from pathlib import Path
 from urllib.parse import urlparse
 
 ROOT = Path(__file__).resolve().parent
-ENTRY_KEYS = {"name", "type", "city", "lat", "lon", "tags", "link", "note"}
+ENTRY_KEYS = {"name", "type", "city", "region", "lat", "lon", "tags", "link", "note"}
 # People are snapped to a 0.1-degree grid (about 11 km north-south), then spread a little so
 # pins in the same city don't stack. The spread is seeded from the entry, so builds are stable.
 PEOPLE_GRID = 0.1
@@ -144,6 +144,8 @@ def check_entries(cfg, entries):
         for key in ("name", "city"):
             if not isinstance(e.get(key), str) or not e[key].strip():
                 errors.append(f'{where} needs a "{key}".')
+        if "region" in e and not isinstance(e["region"], str):
+            errors.append(f'{where}: "region" must be text, like "VA" or "Ontario".')
         if e.get("type") not in cats:
             errors.append(f'{where}: "type" must be one of your categories: {", ".join(cats)}.')
         lat, lon = e.get("lat"), e.get("lon")
@@ -162,6 +164,31 @@ def check_entries(cfg, entries):
     return out
 
 
+def region_of(entry):
+    """The place group an entry is browsed under: its "region", else whatever follows the last comma in "city"."""
+    region = str(entry.get("region") or "").strip()
+    if not region and "," in entry["city"]:
+        region = entry["city"].rsplit(",", 1)[1].strip()
+    return region
+
+
+def region_pages(rows):
+    """Groups of entries by region, in alphabetical order: [(region, slug, [rows])]. Skips entries with no region."""
+    groups = {}
+    for r in rows:
+        if r.get("region"):
+            groups.setdefault(r["region"], []).append(r)
+    out, used = [], set()
+    for region in sorted(groups, key=str.lower):
+        slug = base = "place-" + (re.sub(r"[^a-z0-9]+", "-", region.lower()).strip("-") or "other")
+        n = 2
+        while slug in used:
+            slug, n = f"{base}-{n}", n + 1
+        used.add(slug)
+        out.append((region, slug, groups[region]))
+    return out
+
+
 def public_entries(cfg, entries):
     """What actually ships to the browser. People get blurred coordinates."""
     rows = []
@@ -169,6 +196,8 @@ def public_entries(cfg, entries):
         lat, lon = blur(e) if is_people(cfg, e["type"]) else (e["lat"], e["lon"])
         row = {"name": e["name"].strip(), "type": e["type"], "city": e["city"].strip(),
                "lat": lat, "lon": lon}
+        if region_of(e):
+            row["region"] = region_of(e)
         for key in ("tags", "link", "note"):
             if e.get(key):
                 row[key] = e[key]
@@ -285,15 +314,11 @@ def list_words(words):
     return ", ".join(words[:-1]) + ", and " + words[-1]
 
 
-def index_body(cfg, rows):
+def entries_table(cfg, rows):
+    """The list of entries as an accessible table. Used on the map page and on each place page."""
     e = html.escape
     cats = cfg["categories"]
-    text = {k: cfg.get(k) or v for k, v in TEXT_DEFAULTS.items()}
-    counts = {t: sum(r["type"] == t for r in rows) for t in cats}
-    filters = "\n".join(
-        f'<label class="filter"><input type="checkbox" value="{t}" checked> '
-        f'<span class="swatch pin-{t}" aria-hidden="true"></span>{e(c["plural"])} ({counts[t]})</label>'
-        for t, c in cats.items())
+    tags_label = cfg.get("tags_label") or TEXT_DEFAULTS["tags_label"]
     table_rows = []
     for r in rows:
         name = e(r["name"])
@@ -303,6 +328,54 @@ def index_body(cfg, rows):
         table_rows.append(
             f'<tr data-type="{r["type"]}"><td>{name}{note}</td><td>{e(cats[r["type"]]["label"])}</td>'
             f'<td>{e(r["city"])}</td><td>{e(", ".join(r.get("tags", [])))}</td></tr>')
+    return f"""<div class="table-scroll">
+<table class="entries">
+<thead><tr><th scope="col">Name</th><th scope="col">Type</th><th scope="col">City</th><th scope="col">{e(tags_label)}</th></tr></thead>
+<tbody>
+{chr(10).join(table_rows)}
+</tbody>
+</table>
+</div>"""
+
+
+def browse_section(rows):
+    """Links to the place pages. Only worth showing when there is more than one place."""
+    groups = region_pages(rows)
+    if len(groups) < 2:
+        return ""
+    e = html.escape
+    items = "\n".join(f'<li><a href="{slug}.html">{e(region)}</a> ({len(group)})</li>' for region, slug, group in groups)
+    return f"""<h3>Browse by Place</h3>
+<ul class="places">
+{items}
+</ul>"""
+
+
+def place_body(cfg, region, group, groups):
+    """One page listing everyone in a region: plain HTML, no map, so it loads fast and ranks for the place."""
+    e = html.escape
+    others = "\n".join(f'<li><a href="{slug}.html">{e(name)}</a> ({len(g)})</li>' for name, slug, g in groups if name != region)
+    more = f"""<h2>Other Places</h2>
+<ul class="places">
+{others}
+</ul>""" if others else ""
+    return f"""<section class="wrap" aria-labelledby="place-heading">
+<h1 id="place-heading">Everyone in {e(region)}</h1>
+{entries_table(cfg, group)}
+<p><a href="index.html">Back to the map</a></p>
+{more}
+</section>"""
+
+
+def index_body(cfg, rows):
+    e = html.escape
+    cats = cfg["categories"]
+    text = {k: cfg.get(k) or v for k, v in TEXT_DEFAULTS.items()}
+    counts = {t: sum(r["type"] == t for r in rows) for t in cats}
+    filters = "\n".join(
+        f'<label class="filter"><input type="checkbox" value="{t}" checked> '
+        f'<span class="swatch pin-{t}" aria-hidden="true"></span>{e(c["plural"])} ({counts[t]})</label>'
+        for t, c in cats.items())
     settings = {"center": cfg["center"], "zoom": cfg["zoom"], "tiles": cfg["tiles"],
                 "attribution": cfg["tiles_attribution"],
                 "labels": {t: c["label"] for t, c in cats.items()}}
@@ -341,14 +414,8 @@ def index_body(cfg, rows):
 </section>
 <section class="wrap" aria-labelledby="list-heading">
 <h2 id="list-heading">Everyone on the Map</h2>
-<div class="table-scroll">
-<table class="entries">
-<thead><tr><th scope="col">Name</th><th scope="col">Type</th><th scope="col">City</th><th scope="col">{e(text["tags_label"])}</th></tr></thead>
-<tbody>
-{chr(10).join(table_rows)}
-</tbody>
-</table>
-</div>
+{entries_table(cfg, rows)}
+{browse_section(rows)}
 </section>
 <section class="wrap" id="join" aria-labelledby="join-heading">
 <h2 id="join-heading">Get on the Map</h2>
@@ -364,6 +431,7 @@ def index_body(cfg, rows):
 </section>
 <script type="application/json" id="map-data">{data}</script>
 <script src="assets/vendor/leaflet/leaflet.js" defer></script>
+<script src="assets/vendor/leaflet.markercluster/leaflet.markercluster.js" defer></script>
 <script src="assets/map.js" defer></script>"""
 
 
@@ -374,6 +442,9 @@ def theme_css(cfg):
            "}\n")
     for key, cat in cfg["categories"].items():
         css += f".pin-{key} {{ background: {cat['color']}; }}\n"
+        # Cluster badges: white or dark text, whichever reads better on the category color.
+        ink = "#ffffff" if contrast("#ffffff", cat["color"]) >= contrast(c["dark"], cat["color"]) else c["dark"]
+        css += f".cluster-{key} {{ background: {cat['color']}; color: {ink}; }}\n"
     return css
 
 
@@ -402,13 +473,21 @@ def build(config_path, out):
 <p>That page isn't here. <a href="index.html">Back to the map</a>.</p>
 </section>"""
     (out / "404.html").write_text(page(cfg, f'Not found | {cfg["title"]}', description, missing, slug="404"), encoding="utf-8")
+    groups = region_pages(rows)
+    if len(groups) >= 2:
+        for region, slug, group in groups:
+            (out / f"{slug}.html").write_text(
+                page(cfg, f'{region} | {cfg["title"]}', f'Everyone on {cfg["title"]} in {region}.',
+                     place_body(cfg, region, group, groups), slug=slug), encoding="utf-8")
     (out / ".nojekyll").write_text("", encoding="utf-8")
     robots = "User-agent: *\nAllow: /\n"
     if BASE_URL:
         robots += f"\nSitemap: {BASE_URL}sitemap.xml\n"
         (out / "sitemap.xml").write_text(
             '<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n'
-            f"  <url><loc>{html.escape(BASE_URL)}</loc></url>\n</urlset>\n", encoding="utf-8")
+            f"  <url><loc>{html.escape(BASE_URL)}</loc></url>\n"
+            + "".join(f"  <url><loc>{html.escape(BASE_URL)}{slug}.html</loc></url>\n" for _, slug, _ in (groups if len(groups) >= 2 else []))
+            + "</urlset>\n", encoding="utf-8")
     (out / "robots.txt").write_text(robots, encoding="utf-8")
     counts = []
     for t, c in cfg["categories"].items():
