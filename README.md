@@ -85,6 +85,8 @@ For `lat` and `lon`, use the **city's** coordinates. Search the city on
 **Show address**. For people, the build blurs whatever you enter. Places are shown exactly where you
 put them, so use a **public** meeting spot, storefront, or park.
 
+**How precisely an entry is placed.** Add `"visibility"` to an entry to change it: `"city"` (the default for people: the blurred, city-level pin described above), `"region"` (a pin only about 100 km accurate, for someone who wants less), `"list"` (named in the list but with no pin, and `lat` and `lon` can be left out), or `"exact"` (places only, and the default for them). The build refuses `"exact"` for a person, and the check fails if a `"list"` entry shows up on the map or any blurred entry is published at its settings-file coordinates.
+
 Only add people who asked to be listed, with a parent's OK for kids, and never a child's full name.
 Remove anyone who asks, the same day: delete their block and commit.
 

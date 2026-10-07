@@ -104,14 +104,20 @@ def check_data(raw):
         return
     data = json.loads(raw)
     cfg = build.load_jsonc(CONFIG)
-    people = {t for t in cfg["categories"] if build.is_people(cfg, t)}
-    exact = {(e["lat"], e["lon"]) for e in cfg["entries"] if e.get("type") in people}
+    # Anything that is not set to "exact" (people by default) must not be published at its settings-file coordinates,
+    # and anything set to "list" must not be on the map at all.
+    hidden = {(e["lat"], e["lon"]) for e in cfg["entries"]
+              if e.get("type") in cfg["categories"] and build.visibility_of(cfg, e) not in ("exact", "list") and "lat" in e}
+    listed_only = {(e["name"].strip(), e["city"].strip()) for e in cfg["entries"]
+                   if e.get("type") in cfg["categories"] and build.visibility_of(cfg, e) == "list"}
     for e in data["entries"]:
         extra = set(e) - build.ENTRY_KEYS
         if extra:
             errors.append(f"published entry {e.get('name')!r} has extra fields: {', '.join(sorted(extra))}")
-        if e["type"] in people and (e["lat"], e["lon"]) in exact:
+        if (e["lat"], e["lon"]) in hidden:
             errors.append(f"{e['name']!r} is published at the exact coordinates from {CONFIG.name}")
+        if (e["name"], e["city"]) in listed_only:
+            errors.append(f"{e['name']!r} is set to \"list\" but has a pin on the map")
 
 
 def main():

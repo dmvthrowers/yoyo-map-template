@@ -20,10 +20,17 @@ from urllib.parse import urlparse
 
 ROOT = Path(__file__).resolve().parent
 ENTRY_KEYS = {"name", "type", "city", "lat", "lon", "tags", "link", "note"}
+# Fields an entry may have in the settings file but that are never published (they only steer the build).
+INPUT_ONLY_KEYS = {"visibility"}
+# visibility: how precisely an entry is placed. "exact" is only for places, so it is not the default for people.
+VISIBILITIES = ("exact", "city", "region", "list")
 # People are snapped to a 0.1-degree grid (about 11 km north-south), then spread a little so
 # pins in the same city don't stack. The spread is seeded from the entry, so builds are stable.
 PEOPLE_GRID = 0.1
 PEOPLE_SPREAD = 0.03
+# "region" is coarser: a 1-degree grid (about 110 km), spread by up to a quarter degree.
+REGION_GRID = 1.0
+REGION_SPREAD = 0.25
 HEX = re.compile(r"^#[0-9A-Fa-f]{6}$")
 SLUG = re.compile(r"^[a-z][a-z0-9-]{0,23}$")
 TEXT_DEFAULTS = {
@@ -72,14 +79,20 @@ def is_people(cfg, type_key):
     return cfg["categories"][type_key].get("people", True) is not False
 
 
-def blur(entry):
-    """City-level position for a person: snap to the grid, then a stable small offset."""
-    lat = round(entry["lat"] / PEOPLE_GRID) * PEOPLE_GRID
-    lon = round(entry["lon"] / PEOPLE_GRID) * PEOPLE_GRID
+def blur(entry, grid=PEOPLE_GRID, spread=PEOPLE_SPREAD):
+    """Approximate position: snap to the grid, then a stable small offset."""
+    lat = round(entry["lat"] / grid) * grid
+    lon = round(entry["lon"] / grid) * grid
     seed = hashlib.sha256(f'{entry["name"]}|{entry["city"]}'.encode()).digest()
-    dlat = (seed[0] / 255 - 0.5) * 2 * PEOPLE_SPREAD
-    dlon = (seed[1] / 255 - 0.5) * 2 * PEOPLE_SPREAD
+    dlat = (seed[0] / 255 - 0.5) * 2 * spread
+    dlon = (seed[1] / 255 - 0.5) * 2 * spread
     return round(lat + dlat, 3), round(lon + dlon, 3)
+
+
+def visibility_of(cfg, entry):
+    """How an entry is shown. Defaults fail safe: people at city level, places exactly where they said."""
+    default = "city" if is_people(cfg, entry["type"]) else "exact"
+    return entry.get("visibility") or default
 
 
 def check_config(cfg):
@@ -136,18 +149,24 @@ def check_entries(cfg, entries):
         if not isinstance(e, dict):
             errors.append(f"{where} must be a {{ ... }} block.")
             continue
-        extra = set(e) - ENTRY_KEYS
+        extra = set(e) - ENTRY_KEYS - INPUT_ONLY_KEYS
         if extra:
             # Stops addresses, emails, phone numbers, and ages from slipping onto a public page.
             errors.append(f"{where} has fields the map doesn't publish: {', '.join(sorted(extra))}. "
-                          f"Allowed: {', '.join(sorted(ENTRY_KEYS))}.")
+                          f"Allowed: {', '.join(sorted(ENTRY_KEYS | INPUT_ONLY_KEYS))}.")
+        vis = e.get("visibility")
+        if vis is not None and vis not in VISIBILITIES:
+            errors.append(f'{where}: "visibility" must be one of {", ".join(VISIBILITIES)} (got {vis!r}).')
+        elif vis == "exact" and e.get("type") in cats and is_people(cfg, e["type"]):
+            errors.append(f'{where}: "exact" is only for places. People can be "city", "region", or "list".')
         for key in ("name", "city"):
             if not isinstance(e.get(key), str) or not e[key].strip():
                 errors.append(f'{where} needs a "{key}".')
         if e.get("type") not in cats:
             errors.append(f'{where}: "type" must be one of your categories: {", ".join(cats)}.')
         lat, lon = e.get("lat"), e.get("lon")
-        if not (isinstance(lat, (int, float)) and -90 <= lat <= 90 and isinstance(lon, (int, float)) and -180 <= lon <= 180):
+        coords_ok = isinstance(lat, (int, float)) and -90 <= lat <= 90 and isinstance(lon, (int, float)) and -180 <= lon <= 180
+        if not coords_ok and not (vis == "list" and lat is None and lon is None):
             errors.append(f'{where}: "lat" and "lon" must be numbers, like 39.78 and -89.65.')
         if "@" in str(e.get("name", "")) + str(e.get("note", "")):
             errors.append(f"{where}: no email addresses on the map. Put a link in \"link\" instead.")
@@ -163,12 +182,19 @@ def check_entries(cfg, entries):
 
 
 def public_entries(cfg, entries):
-    """What actually ships to the browser. People get blurred coordinates."""
+    """What actually ships to the browser. Positions are blurred by each entry's visibility; "list" entries get none."""
     rows = []
     for e in entries:
-        lat, lon = blur(e) if is_people(cfg, e["type"]) else (e["lat"], e["lon"])
-        row = {"name": e["name"].strip(), "type": e["type"], "city": e["city"].strip(),
-               "lat": lat, "lon": lon}
+        vis = visibility_of(cfg, e)
+        row = {"name": e["name"].strip(), "type": e["type"], "city": e["city"].strip()}
+        if vis == "list":
+            pass   # listed in the table only: no coordinates leave the settings file
+        elif vis == "region":
+            row["lat"], row["lon"] = blur(e, REGION_GRID, REGION_SPREAD)
+        elif vis == "city":
+            row["lat"], row["lon"] = blur(e)
+        else:
+            row["lat"], row["lon"] = e["lat"], e["lon"]
         for key in ("tags", "link", "note"):
             if e.get(key):
                 row[key] = e[key]
@@ -307,7 +333,8 @@ def index_body(cfg, rows):
                 "attribution": cfg["tiles_attribution"],
                 "labels": {t: c["label"] for t, c in cats.items()}}
     # A JSON data block is not executed, so the strict security policy allows it.
-    data = json.dumps({"settings": settings, "entries": rows}, ensure_ascii=False).replace("</", "<\\/")
+    pinned = [r for r in rows if "lat" in r]
+    data = json.dumps({"settings": settings, "entries": pinned}, ensure_ascii=False).replace("</", "<\\/")
     join = (f'<p><a class="button" href="{e(cfg["add_url"])}" target="_blank" rel="noopener noreferrer">Add yourself</a></p>'
             if cfg.get("add_url") else "")
     email = e(cfg["contact_email"])
@@ -319,12 +346,13 @@ def index_body(cfg, rows):
     places = [c["plural"] for t, c in cats.items() if not is_people(cfg, t)]
     privacy = []
     if people:
-        privacy.append(f"<li>{e(sentence_list(people))} show up at city level only. Each pin is snapped to a grid "
+        privacy.append(f"<li>{e(sentence_list(people))} show up at city level at most. Each pin is snapped to a grid "
                        "about 10 km wide, then nudged so people in the same city don't overlap.</li>")
     privacy += ["<li>No accounts, no cookies, no trackers. The map never asks for your location.</li>",
-                "<li>No emails, phone numbers, or home addresses are published. The build refuses them.</li>"]
+                "<li>No emails, phone numbers, or home addresses are published. The build refuses them.</li>",
+                "<li>Anyone can ask to be placed only at region level, or to be listed without a pin at all.</li>"]
     if places:
-        privacy.append(f"<li>{e(sentence_list(places))} are shown at the public spot they chose.</li>")
+        privacy.append(f"<li>{e(sentence_list(places))} are shown at the public spot they chose, unless they asked for less.</li>")
     return f"""<section class="wrap" aria-labelledby="map-heading">
 <h1 id="map-heading">{e(text["heading"])}</h1>
 <fieldset class="filters">
