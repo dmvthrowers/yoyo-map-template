@@ -7,8 +7,8 @@
 Fails on: a missing Content Security Policy or one with 'unsafe-inline', inline scripts
 (other than the map's JSON data block), inline styles or event handlers, http:// links,
 broken internal links, a missing title or skip link, and any published entry with fields
-beyond the allowed ones or a pin in a "people" category that wasn't blurred. With --real (your
-copy's deploy workflow), it also fails while the template's sample content is still on the map.
+beyond the allowed ones, a heading that skips a level (h1 to h3), or a pin in a "people" category that wasn't blurred.
+With --real (your copy's deploy workflow), it also fails while the template's sample content is still on the map.
 Prints "OK" when clean.
 """
 import argparse
@@ -36,6 +36,7 @@ class Page(HTMLParser):
         self.refs, self.ids, self.problems = [], set(), []
         self.csp = None
         self.has_title = False
+        self.levels = []
         self.data, self._in_data = "", False
 
     def handle_starttag(self, tag, attrs):
@@ -44,6 +45,8 @@ class Page(HTMLParser):
             self.ids.add(a["id"])
         if tag == "title":
             self.has_title = True
+        if len(tag) == 2 and tag[0] == "h" and tag[1] in "123456":
+            self.levels.append(int(tag[1]))
         if tag == "meta" and (a.get("http-equiv") or "").lower() == "content-security-policy":
             self.csp = a.get("content") or ""
         if tag == "style":
@@ -86,6 +89,10 @@ def check_page(path):
         errors.append(f"{name}: the security policy allows unsafe-inline/unsafe-eval")
     if not p.has_title:
         errors.append(f"{name}: no <title>")
+    for prev, cur in zip(p.levels, p.levels[1:]):
+        if cur > prev + 1:
+            errors.append(f"{name}: heading jumps from h{prev} to h{cur}")
+            break
     if "main-content" not in p.ids:
         errors.append(f"{name}: no main#main-content for the skip link")
     for ref in p.refs:

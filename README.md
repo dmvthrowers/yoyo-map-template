@@ -23,6 +23,7 @@ thousands.
   matches (never closer than city level)
 - **A list of everyone** under the map. It works without JavaScript and with screen readers.
 - **"Get on the map"** and **"How your privacy works"** sections, written from your settings
+- A **privacy page** and a **share image** (the card shown when the link is pasted into a chat), both built from your settings. Set `og_image` in `map.jsonc` to use your own picture.
 - An **"Add me to the map"** issue form, if you want people to ask through GitHub
 
 **Privacy is built in, not optional:**
