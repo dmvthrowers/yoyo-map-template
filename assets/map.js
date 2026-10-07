@@ -1,5 +1,5 @@
 // Draws the pins from the JSON block that build.py writes into index.html,
-// and wires the category checkboxes to both the map and the list.
+// and wires the search box and category checkboxes to both the map and the list.
 (function () {
   "use strict";
   var dataEl = document.getElementById("map-data");
@@ -37,6 +37,11 @@
     return box;
   }
 
+  // Lower-case and drop accents, so "montreal" finds "Montréal".
+  function fold(text) {
+    return String(text).normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase();
+  }
+
   // One cluster group per category, so the checkboxes still show and hide whole categories.
   // Badges are flat squares in the category color; animations are off.
   var layers = {};
@@ -55,23 +60,59 @@
       }
     }).addTo(map);
   });
-  data.entries.forEach(function (e) {
+
+  // Entries and table rows are written in the same order, so index i is the same entry in both.
+  var rows = document.querySelectorAll("tr[data-type]");
+  var items = data.entries.map(function (e, i) {
     var icon = L.divIcon({ className: "pin pin-" + e.type, iconSize: [14, 14] });
-    L.marker([e.lat, e.lon], { icon: icon, title: e.name, alt: e.name })
-      .bindPopup(popup(e))
-      .addTo(layers[e.type]);
+    var marker = L.marker([e.lat, e.lon], { icon: icon, title: e.name, alt: e.name }).bindPopup(popup(e));
+    marker.addTo(layers[e.type]);
+    var text = [e.name, e.city, s.labels[e.type], (e.tags || []).join(" "), e.note || ""].join(" ");
+    return { entry: e, marker: marker, row: rows[i], text: fold(text), shown: true };
   });
 
-  var rows = document.querySelectorAll("tr[data-type]");
+  var shownTypes = {};
+  Object.keys(s.labels).forEach(function (t) { shownTypes[t] = true; });
+  var search = document.getElementById("map-search");
+  var count = document.getElementById("map-count");
+
+  function update(fit) {
+    var words = search ? fold(search.value).split(/\s+/).filter(Boolean) : [];
+    var visible = [];
+    items.forEach(function (it) {
+      var show = shownTypes[it.entry.type] && words.every(function (w) { return it.text.indexOf(w) !== -1; });
+      if (show !== it.shown) {
+        if (show) layers[it.entry.type].addLayer(it.marker); else layers[it.entry.type].removeLayer(it.marker);
+        it.shown = show;
+      }
+      if (it.row) it.row.hidden = !show;
+      if (show) visible.push(it.marker.getLatLng());
+    });
+    if (count) {
+      count.textContent = words.length || visible.length !== items.length
+        ? "Showing " + visible.length + " of " + items.length + "." : "";
+    }
+    // Zoom to the matches, but never closer than city level.
+    if (fit && words.length && visible.length) {
+      map.fitBounds(L.latLngBounds(visible), { maxZoom: Math.max(s.zoom, 9), padding: [30, 30] });
+    }
+  }
+
   document.querySelectorAll(".filters input[type=checkbox]").forEach(function (box) {
     box.addEventListener("change", function () {
-      var t = box.value;
-      if (box.checked) map.addLayer(layers[t]); else map.removeLayer(layers[t]);
-      rows.forEach(function (row) {
-        if (row.getAttribute("data-type") === t) row.hidden = !box.checked;
-      });
+      shownTypes[box.value] = box.checked;
+      update(false);
     });
   });
+
+  if (search) {
+    search.closest(".search").hidden = false;
+    var timer;
+    search.addEventListener("input", function () {
+      clearTimeout(timer);
+      timer = setTimeout(function () { update(true); }, 200);
+    });
+  }
 
   // Let people scroll the page past the map; zoom with the wheel only after clicking in.
   map.on("click", function () { map.scrollWheelZoom.enable(); });

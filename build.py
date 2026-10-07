@@ -400,6 +400,11 @@ def index_body(cfg, rows):
         privacy.append(f"<li>{e(sentence_list(places))} are shown at the public spot they chose.</li>")
     return f"""<section class="wrap" aria-labelledby="map-heading">
 <h1 id="map-heading">{e(text["heading"])}</h1>
+<div class="search" hidden>
+<label for="map-search">Search by name, city, or {e(text["tags_label"].lower())}</label>
+<input type="search" id="map-search" autocomplete="off" spellcheck="false">
+<p id="map-count" class="muted" aria-live="polite"></p>
+</div>
 <fieldset class="filters">
 <legend>Show</legend>
 {filters}
