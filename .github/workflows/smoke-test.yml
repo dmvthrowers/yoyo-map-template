@@ -1,0 +1,40 @@
+# Builds the map and its examples and clicks through every page of each in a real browser at phone width.
+# It catches what the static check can't: a broken script, a failed request, a page that scrolls sideways,
+# a phone menu that doesn't open. 
+name: Smoke test
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: smoke-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  smoke:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: "3.12"
+      - name: Build the map and its examples
+        run: |
+          python3 build.py --out _site
+          for f in examples/*.jsonc; do python3 build.py --config "$f" --out "_site/examples/$(basename "$f" .jsonc)"; done
+      - name: Get a browser
+        run: |
+          npm install --prefix "$RUNNER_TEMP/pw" --no-audit --no-fund playwright@1.56.1
+          "$RUNNER_TEMP/pw/node_modules/.bin/playwright" install --with-deps chromium
+      - name: Click through every page
+        env:
+          NODE_PATH: ${{ runner.temp }}/pw/node_modules
+        run: node scripts/smoke_test.js
