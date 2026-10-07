@@ -23,7 +23,7 @@
   "tiles_attribution_url": "https://www.openstreetmap.org/copyright",
   "entries": [
     { "name": "Sample Player", "type": "player", "city": "Portland, OR", "lat": 45.52, "lon": -122.68, "tags": ["euro games", "co-op"] },
-    { "name": "Another Sample", "type": "player", "city": "Beaverton, OR", "lat": 45.49, "lon": -122.80, "tags": ["war games"] },
+    { "name": "Another Sample", "type": "player", "city": "Vancouver, WA", "lat": 45.64, "lon": -122.66, "tags": ["war games"] },
     { "name": "Sample Game Night", "type": "game-night", "city": "Portland, OR", "lat": 45.5231, "lon": -122.6765, "note": "Thursdays 6–10 PM. All welcome." },
     { "name": "Sample Game Store", "type": "store", "city": "Portland, OR", "lat": 45.5152, "lon": -122.6584, "link": "https://example.org" },
   ],
