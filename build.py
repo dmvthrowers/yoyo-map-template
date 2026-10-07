@@ -359,6 +359,7 @@ def index_body(cfg, rows):
 </section>
 <script type="application/json" id="map-data">{data}</script>
 <script src="assets/vendor/leaflet/leaflet.js" defer></script>
+<script src="assets/vendor/leaflet.markercluster/leaflet.markercluster.js" defer></script>
 <script src="assets/map.js" defer></script>"""
 
 
@@ -369,6 +370,9 @@ def theme_css(cfg):
            "}\n")
     for key, cat in cfg["categories"].items():
         css += f".pin-{key} {{ background: {cat['color']}; }}\n"
+        # Cluster badges: white or dark text, whichever reads better on the category color.
+        ink = "#ffffff" if contrast("#ffffff", cat["color"]) >= contrast(c["dark"], cat["color"]) else c["dark"]
+        css += f".cluster-{key} {{ background: {cat['color']}; color: {ink}; }}\n"
     return css
 
 
