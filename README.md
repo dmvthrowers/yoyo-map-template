@@ -19,8 +19,11 @@ thousands.
 
 - **A map** with square pins in your own categories (players, clubs, shops, or birders, hotspots,
   game nights...). Pins that crowd together merge into a numbered square; click it to zoom in. Checkboxes show or hide each category.
+- **A search box** that narrows the map and the list by name, city, or tag, and zooms to the
+  matches (never closer than city level)
 - **A list of everyone** under the map. It works without JavaScript and with screen readers.
 - **"Get on the map"** and **"How your privacy works"** sections, written from your settings
+- A **privacy page** and a **share image** (the card shown when the link is pasted into a chat), both built from your settings. Set `og_image` in `map.jsonc` to use your own picture.
 - An **"Add me to the map"** issue form, if you want people to ask through GitHub
 
 **Privacy is built in, not optional:**

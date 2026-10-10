@@ -40,6 +40,9 @@ people to ask to be added. Pins for people are blurred; never publish exact home
 - **Examples:** every file in `examples/` must build and pass the check (CI runs them all). Entries
   there are labeled samples, not real people or businesses.
 - **Links:** relative only, so the map works at `user.github.io/repo/` and on a custom domain.
+- **Smoke test:** `scripts/smoke_test.js` and `.github/workflows/smoke-test.yml` build the map and its examples and click
+  through every page at phone width. Run it after changing `build.py` or `assets/` (needs Node and Playwright; see the header of
+  the script for the commands).
 - **No dependencies:** `build.py` and `scripts/check_site.py` stay standard-library Python 3.9+.
 
 ## Useful commands
@@ -49,3 +52,5 @@ python3 scripts/check_site.py   # must print "OK"
 python3 build.py --config examples/birding-club.jsonc --out /tmp/birding   # build an example
 python3 scripts/check_site.py --config examples/birding-club.jsonc --site /tmp/birding
 ```
+
+- **Accessibility check:** after changing markup or styles, build the map and examples (as `.github/workflows/a11y.yml` does) and run `node scripts/a11y_test.js` (needs Playwright and axe-core). It fails on serious or critical axe problems at 360px and 1100px.

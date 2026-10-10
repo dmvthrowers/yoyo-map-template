@@ -14,7 +14,9 @@ import json
 import os
 import re
 import shutil
+import struct
 import sys
+import zlib
 from pathlib import Path
 from urllib.parse import urlparse
 
@@ -99,7 +101,7 @@ def check_config(cfg):
     for key in ("title", "organizer", "contact_email", "tiles", "tiles_attribution"):
         if not str(cfg.get(key) or "").strip():
             errors.append(f'"{key}" is empty in the settings file.')
-    for key in ("organizer_url", "add_url", "tiles_attribution_url"):
+    for key in ("organizer_url", "add_url", "tiles_attribution_url", "og_image"):
         if cfg.get(key) and not is_https(cfg[key]):
             errors.append(f'"{key}" must start with https:// (got {cfg[key]!r}).')
     if cfg.get("tiles") and not is_https(cfg["tiles"].replace("{", "").replace("}", "")):
@@ -242,6 +244,49 @@ def csp(cfg):
             f"img-src 'self' {tile_src}; base-uri 'none'; form-action 'none'")
 
 
+def share_image_url(cfg):
+    """The share-card address: the settings' own https:// image, else the generated card (needs the public address)."""
+    if cfg.get("og_image"):
+        return cfg["og_image"]
+    return BASE_URL + "assets/og-image.png" if BASE_URL else ""
+
+
+def share_card_png(cfg):
+    """A 1200x630 card in the map's colors: a dark field, one square per category color, a stripe in the primary color.
+    Hand-written PNG so the build stays standard-library only. No text, so it never needs a font."""
+    w, h = 1200, 630
+    rgb = lambda c: bytes(int(c[i:i + 2], 16) for i in (1, 3, 5))
+    dark, primary, bg = (rgb(cfg["colors"][k]) for k in ("dark", "primary", "background"))
+    cats = [rgb(c["color"]) for c in cfg["categories"].values()]
+    size, gap = 120, 36
+    row_w = len(cats) * size + (len(cats) - 1) * gap
+    x0, y0 = (w - row_w) // 2, (h - size) // 2 - 30
+    plain = dark * w
+    swatch_row = bytearray(dark * x0)
+    for i, c in enumerate(cats):
+        swatch_row += c * size
+        if i < len(cats) - 1:
+            swatch_row += dark * gap
+    swatch_row += dark * (w - len(swatch_row) // 3)
+    stripe = primary * w
+    rows = []
+    for y in range(h):
+        if y >= h - 36:
+            rows.append(stripe)
+        elif y0 <= y < y0 + size:
+            rows.append(bytes(swatch_row))
+        else:
+            rows.append(plain)
+    raw = b"".join(b"\x00" + r for r in rows)
+
+    def chunk(kind, data):
+        body = kind + data
+        return struct.pack(">I", len(data)) + body + struct.pack(">I", zlib.crc32(body) & 0xFFFFFFFF)
+
+    return (b"\x89PNG\r\n\x1a\n" + chunk(b"IHDR", struct.pack(">IIBBBBB", w, h, 8, 2, 0, 0, 0))
+            + chunk(b"IDAT", zlib.compress(raw, 9)) + chunk(b"IEND", b""))
+
+
 def page(cfg, title, description, body, slug="index"):
     e = html.escape
     canonical = BASE_URL if slug == "index" else (BASE_URL + slug + ".html" if BASE_URL else "")
@@ -272,17 +317,20 @@ def page(cfg, title, description, body, slug="index"):
 
 
 def social_tags(cfg, title, description, canonical):
-    """Open Graph and Twitter tags always; canonical link and JSON-LD only once the public address is known."""
+    image = share_image_url(cfg)
+    """Open Graph and Twitter tags always; canonical link, JSON-LD and the share image only once the public address is known."""
     e = html.escape
     tags = [
         f'<meta property="og:type" content="website">',
         f'<meta property="og:site_name" content="{e(cfg["title"])}">',
         f'<meta property="og:title" content="{e(title)}">',
         f'<meta property="og:description" content="{e(description)}">',
-        '<meta name="twitter:card" content="summary">',
+        f'<meta name="twitter:card" content="{"summary_large_image" if image else "summary"}">',
         f'<meta name="twitter:title" content="{e(title)}">',
         f'<meta name="twitter:description" content="{e(description)}">',
     ]
+    if image:
+        tags += [f'<meta property="og:image" content="{e(image)}">', f'<meta name="twitter:image" content="{e(image)}">']
     if canonical:
         tags += [f'<link rel="canonical" href="{e(canonical)}">', f'<meta property="og:url" content="{e(canonical)}">']
         data = {
@@ -327,7 +375,7 @@ def footer(cfg):
     email = e(cfg["contact_email"])
     return f"""<footer class="site-footer">
 <div class="wrap">
-<p>Run by {org}. Questions or removal requests: <a href="mailto:{email}">{email}</a>.</p>
+<p>Run by {org}. Questions or removal requests: <a href="mailto:{email}">{email}</a>. <a href="privacy.html">Privacy</a>.</p>
 <p>Map tiles {attribution}. Map library <a href="https://leafletjs.com" target="_blank" rel="noopener noreferrer">Leaflet</a>.</p>
 </div>
 </footer>"""
@@ -338,6 +386,56 @@ def list_words(words):
     if len(words) <= 2:
         return " and ".join(words)
     return ", ".join(words[:-1]) + ", and " + words[-1]
+
+
+def sentence_list(plurals):
+    """'Clubs, shops, and venues': only the first word capitalized, since it starts a sentence."""
+    return list_words([plurals[0]] + [w.lower() for w in plurals[1:]]) if plurals else ""
+
+
+def privacy_points(cfg):
+    """The short privacy list shown on the map page, written from the categories."""
+    e = html.escape
+    cats = cfg["categories"]
+    people = [c["plural"] for t, c in cats.items() if is_people(cfg, t)]
+    places = [c["plural"] for t, c in cats.items() if not is_people(cfg, t)]
+    privacy = []
+    if people:
+        privacy.append(f"<li>{e(sentence_list(people))} show up at city level at most. Each pin is snapped to a grid "
+                       "about 10 km wide, then nudged so people in the same city don't overlap.</li>")
+    privacy += ["<li>No accounts, no cookies, no trackers. The map never asks for your location.</li>",
+                "<li>No emails, phone numbers, or home addresses are published. The build refuses them.</li>",
+                "<li>Anyone can ask to be placed only at region level, or to be listed without a pin at all.</li>"]
+    if places:
+        privacy.append(f"<li>{e(sentence_list(places))} are shown at the public spot they chose, unless they asked for less.</li>")
+    return privacy
+
+
+def privacy_body(cfg):
+    """The privacy page: what is published, how pins are blurred, what the map loads, how to be removed."""
+    e = html.escape
+    email = e(cfg["contact_email"])
+    tile_host = e(urlparse(cfg["tiles"].replace("{s}", "a")).netloc)
+    fields = ", ".join(sorted(ENTRY_KEYS))
+    return f"""<section class="wrap" aria-labelledby="privacy-title">
+<h1 id="privacy-title">Privacy</h1>
+<p>This map is run by {e(cfg["organizer"])}. We publish as little as we can, and only about people who asked to be on it.</p>
+<h2>What We Publish</h2>
+<p>Each entry can have these fields and no others: {e(fields)}. The build refuses anything else, and it refuses email addresses in a name or note.</p>
+<ul>
+{chr(10).join(privacy_points(cfg))}
+</ul>
+<h2>What Your Browser Loads</h2>
+<ul>
+<li>This site's own files, hosted on GitHub Pages.</li>
+<li>Map tiles from {tile_host}. That service sees your IP address when your browser asks for tiles, like any website would.</li>
+<li>No analytics, no cookies, no outside fonts, no ads.</li>
+</ul>
+<h2>How Entries Are Added and Removed</h2>
+<p>We only list people who asked. To be added, changed, or removed, email <a href="mailto:{email}">{email}</a>. You'll be gone at the next update.</p>
+<p>The entries live in a public file in this site's repository, so older versions of the list stay in its history. Because people are published at city level only, that history never holds a more exact spot than the page does.</p>
+<p><a href="index.html">Back to the map</a>.</p>
+</section>"""
 
 
 def entries_table(cfg, rows):
@@ -415,19 +513,14 @@ def index_body(cfg, rows):
     def sentence_list(plurals):
         """'Clubs, shops, and venues': only the first word capitalized, since it starts a sentence."""
         return list_words([plurals[0]] + [w.lower() for w in plurals[1:]]) if plurals else ""
-    people = [c["plural"] for t, c in cats.items() if is_people(cfg, t)]
-    places = [c["plural"] for t, c in cats.items() if not is_people(cfg, t)]
-    privacy = []
-    if people:
-        privacy.append(f"<li>{e(sentence_list(people))} show up at city level at most. Each pin is snapped to a grid "
-                       "about 10 km wide, then nudged so people in the same city don't overlap.</li>")
-    privacy += ["<li>No accounts, no cookies, no trackers. The map never asks for your location.</li>",
-                "<li>No emails, phone numbers, or home addresses are published. The build refuses them.</li>",
-                "<li>Anyone can ask to be placed only at region level, or to be listed without a pin at all.</li>"]
-    if places:
-        privacy.append(f"<li>{e(sentence_list(places))} are shown at the public spot they chose, unless they asked for less.</li>")
+    privacy = privacy_points(cfg)
     return f"""<section class="wrap" aria-labelledby="map-heading">
 <h1 id="map-heading">{e(text["heading"])}</h1>
+<div class="search" hidden>
+<label for="map-search">Search by name, city, or {e(text["tags_label"].lower())}</label>
+<input type="search" id="map-search" autocomplete="off" spellcheck="false">
+<p id="map-count" class="muted" aria-live="polite"></p>
+</div>
 <fieldset class="filters">
 <legend>Show</legend>
 {filters}
@@ -496,6 +589,11 @@ def build(config_path, out):
 <p>That page isn't here. <a href="index.html">Back to the map</a>.</p>
 </section>"""
     (out / "404.html").write_text(page(cfg, f'Not found | {cfg["title"]}', description, missing, slug="404"), encoding="utf-8")
+    (out / "privacy.html").write_text(
+        page(cfg, f'Privacy | {cfg["title"]}', f'What {cfg["title"]} publishes, and what it does not.',
+             privacy_body(cfg), slug="privacy"), encoding="utf-8")
+    if not cfg.get("og_image"):
+        (out / "assets" / "og-image.png").write_bytes(share_card_png(cfg))
     groups = region_pages(rows)
     if len(groups) >= 2:
         for region, slug, group in groups:
@@ -509,6 +607,7 @@ def build(config_path, out):
         (out / "sitemap.xml").write_text(
             '<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n'
             f"  <url><loc>{html.escape(BASE_URL)}</loc></url>\n"
+            f"  <url><loc>{html.escape(BASE_URL)}privacy.html</loc></url>\n"
             + "".join(f"  <url><loc>{html.escape(BASE_URL)}{slug}.html</loc></url>\n" for _, slug, _ in (groups if len(groups) >= 2 else []))
             + "</urlset>\n", encoding="utf-8")
     (out / "robots.txt").write_text(robots, encoding="utf-8")
