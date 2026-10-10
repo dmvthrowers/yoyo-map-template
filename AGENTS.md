@@ -52,3 +52,5 @@ python3 scripts/check_site.py   # must print "OK"
 python3 build.py --config examples/birding-club.jsonc --out /tmp/birding   # build an example
 python3 scripts/check_site.py --config examples/birding-club.jsonc --site /tmp/birding
 ```
+
+- **Accessibility check:** after changing markup or styles, build the map and examples (as `.github/workflows/a11y.yml` does) and run `node scripts/a11y_test.js` (needs Playwright and axe-core). It fails on serious or critical axe problems at 360px and 1100px.
