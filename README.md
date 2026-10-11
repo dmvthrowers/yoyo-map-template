@@ -41,6 +41,16 @@ The look comes from DMV Throwers: square corners, flat boxes with no shadows, se
 
 ---
 
+## Prerequisites
+
+Everything here is free except the optional custom domain.
+
+| You need | Free / low-cost option |
+|---|---|
+| GitHub account | [github.com/signup](https://github.com/signup) — Pages hosting is free on public repos |
+| Shared contact email | Gmail (free) — published for pin removal requests |
+| Custom domain (optional) | [Cloudflare Registrar](https://www.cloudflare.com/products/registrar/) or [Porkbun](https://porkbun.com) (~$10–15/yr), or use the free `yourmap.github.io` address |
+
 ## Quick start
 
 You need a free [GitHub account](https://github.com/signup).
